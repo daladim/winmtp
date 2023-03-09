@@ -22,6 +22,8 @@
 //!
 //! The entry point of this library is to create a `Provider`, e.g. by [`Provider::new`]. Other structs can be created from its various methods.
 
+pub mod io;
+
 mod provider;
 pub use provider::Provider;
 

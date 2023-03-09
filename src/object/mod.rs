@@ -3,12 +3,14 @@
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 
-use windows::core::{GUID, PWSTR, PCWSTR};
-use windows::Win32::Devices::PortableDevices::WPD_OBJECT_PARENT_ID;
+use windows::core::PCWSTR;
+use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
+use windows::Win32::Devices::PortableDevices::{WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT};
 use widestring::{U16CString, U16CStr};
 
 use crate::device::Content;
-use crate::error::ItemByPathError;
+use crate::error::{ItemByPathError, OpenStreamError};
+use crate::io::ReadStream;
 
 mod object_id;
 pub use object_id::ObjectId;
@@ -118,7 +120,52 @@ impl Object {
             None => Err(ItemByPathError::NotFound)
         }
     }
+
+    /// Opens a COM [`IStream`](windows::Win32::System::Com::IStream) to this object.
+    ///
+    /// An error will be returned if the required operation does not make sense (e.g. get a stream to a folder).
+    ///
+    /// Also returns the optimal transfer buffer size (in bytes) for this transfer, as stated by the Microsoft API.
+    ///
+    /// See also [`Self::open_read_stream`] and [`Self::open_write_stream`].
+    pub fn open_raw_stream(&self, stream_mode: STGM) -> Result<(IStream, u32), OpenStreamError> {
+        let resources = unsafe{ self.device_content.com_object().Transfer()? };
+
+        let mut stream = None;
+        let mut optimal_transfer_size_bytes: u32 = 0;
+        unsafe{ resources.GetStream(
+            PCWSTR::from_raw(self.id.as_ptr()),
+            &WPD_RESOURCE_DEFAULT as *const _,  // We are transferring the default resource (which is the entire object's data)
+            stream_mode.0,
+            &mut optimal_transfer_size_bytes as *mut u32,
+            &mut stream as *mut Option<IStream>,
+        )}?;
+
+        match stream {
+            None => Err(OpenStreamError::UnableToCreate),
+            Some(s) => Ok((s, optimal_transfer_size_bytes)),
+        }
+    }
+
+    /// The same as [`Self::open_raw_stream`], but wrapped into a [`crate::io::ReadStream`] for more added Rust magic.
+    ///
+    /// # Example
+    /// ```
+    /// # let provider = winmtp::Provider::new().unwrap();
+    /// # let basic_device = provider.enumerate_devices().unwrap()[0];
+    /// # let app_identifiers = winmtp::make_current_app_identifiers!();
+    /// # let device = basic_device.open(&app_identifiers).unwrap();
+    /// let object = device.content().unwrap().object_by_id(some_id).unwrap();
+    /// let mut input_stream = object.open_read_stream().unwrap();
+    /// let mut output_file = std::fs::File::create("pulled-from-device.dat").unwrap();
+    /// std::io::copy(&mut input_stream, &mut output_file).unwrap();
+    /// ```
+    pub fn open_read_stream(&self) -> Result<ReadStream, OpenStreamError> {
+        let (stream, optimal_transfer_size) = self.open_raw_stream(STGM_READ)?;
+        Ok(ReadStream::new(stream, optimal_transfer_size as usize))
+    }
 }
+
 
 fn object_by_components_last_stage(candidate: Object, next_components: &mut Peekable<Components>) -> Result<Object, ItemByPathError> {
     match next_components.peek() {
