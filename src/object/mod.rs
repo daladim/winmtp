@@ -3,12 +3,13 @@
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 
-use windows::core::PCWSTR;
-use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
+use windows::core::{PWSTR, PCWSTR};
+use windows::Win32::System::Com::{IStream, STGM, STGM_READ, CoTaskMemFree};
 use windows::Win32::Devices::PortableDevices::{WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT};
 use widestring::{U16CString, U16CStr};
 
 use crate::device::Content;
+use crate::device::device_values::make_values_for_create_folder;
 use crate::error::{ItemByPathError, OpenStreamError};
 use crate::io::ReadStream;
 
@@ -163,6 +164,28 @@ impl Object {
     pub fn open_read_stream(&self) -> Result<ReadStream, OpenStreamError> {
         let (stream, optimal_transfer_size) = self.open_raw_stream(STGM_READ)?;
         Ok(ReadStream::new(stream, optimal_transfer_size as usize))
+    }
+
+    /// Create a subfolder, and return its object ID
+    pub fn create_subfolder(&self, folder_name: &str) -> Result<U16CString, CreateFolderError> {
+        // Check if such an item already exist (otherwise, `CreateObjectWithPropertiesOnly` would return an unhelpful "Unspecified error ")
+        if let Ok(_existing_item) = self.object_by_path(Path::new(folder_name)) {
+            return Err(CreateFolderError::AlreadyExists)
+        }
+
+        let folder_properties = make_values_for_create_folder(&self.id, folder_name)?;
+        let mut created_object_id = PWSTR::null();
+        unsafe{ self.device_content.com_object().CreateObjectWithPropertiesOnly(
+            &folder_properties,
+            &mut created_object_id as *mut _,
+        )}?;
+
+        let owned_id = unsafe{ U16CString::from_ptr_str(created_object_id.as_ptr()) };
+        unsafe{
+            CoTaskMemFree(Some(created_object_id.as_ptr() as *const _))
+        };
+
+        Ok(owned_id)
     }
 }
 

@@ -8,7 +8,7 @@ use widestring::{U16CString, U16CStr};
 
 use winmtp::Provider;
 use winmtp::device::BasicDevice;
-use winmtp::device::AppIdentifiers;
+use winmtp::device::device_values::AppIdentifiers;
 use winmtp::object::ObjectId;
 use winmtp::object::ObjectType;
 
@@ -21,7 +21,8 @@ fn file_access() {
     println!("Testing on {}:", first_device.friendly_name());
     access_by_path(first_device);
     access_by_id(first_device);
-    transfer_content(first_device);
+    push_content(first_device);
+    pull_content(first_device);
 }
 
 fn access_by_path(basic_device: &BasicDevice) {
@@ -80,15 +81,23 @@ fn access_by_id(basic_device: &BasicDevice) {
     assert_eq!(download_folder_by_id.name(), &U16CString::from_str_truncate("Download"));
 }
 
-fn transfer_content(basic_device: &BasicDevice) {
+fn push_content(basic_device: &BasicDevice) {
     // let provider = winmtp::Provider::new().unwrap();
     // let basic_device = provider.enumerate_devices().unwrap()[0];
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers).unwrap();
-    let object = device.content().unwrap().root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
+    let download_folder = device.content().unwrap().root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
+    download_folder.create_subfolder("winmtp_test").unwrap();
+}
+
+fn pull_content(basic_device: &BasicDevice) {
+    // let provider = winmtp::Provider::new().unwrap();
+    // let basic_device = provider.enumerate_devices().unwrap()[0];
+    let app_identifiers = winmtp::make_current_app_identifiers!();
+    let device = basic_device.open(&app_identifiers).unwrap();
+    let object = device.content().unwrap().root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\winmtp_test")).unwrap();
     let mut input_stream = object.open_read_stream().unwrap();
     let mut output_file = std::fs::File::create("pulled-from-device.dat").unwrap();
     std::io::copy(&mut input_stream, &mut output_file).unwrap();
-
-    // What happens when reading a dir?
 }
+

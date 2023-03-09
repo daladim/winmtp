@@ -4,9 +4,9 @@ use windows::Win32::Devices::PortableDevices::PortableDeviceFTM;
 use widestring::U16CString;
 
 use crate::IPortableDevice;
+use crate::device::device_values::AppIdentifiers;
 
-mod device_values;
-pub use device_values::AppIdentifiers;
+pub mod device_values;
 
 mod content;
 pub use content::Content;
@@ -34,7 +34,7 @@ impl BasicDevice {
     pub fn open(&self, app_identifiers: &AppIdentifiers) -> crate::WindowsResult<Device> {
         // Fill out information about your application, so the device knows
         // who they are speaking to.
-        let device_values = device_values::make_device_values(app_identifiers)?;
+        let device_values = device_values::make_values_for_open_device(app_identifiers)?;
 
         let com_device: IPortableDevice = unsafe {
             CoCreateInstance(
