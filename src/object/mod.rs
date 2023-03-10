@@ -243,6 +243,32 @@ impl Object {
 
         Ok(())
     }
+
+    /// Move an object that is already on the device to a new folder
+    pub fn move_to(&mut self, new_folder_id: &U16CStr) -> crate::WindowsResult<()>  {
+        let id_as_propvariant = unsafe{ init_propvariant_from_string(&mut self.id) };
+
+        let objects_to_move: IPortableDevicePropVariantCollection = unsafe {
+            CoCreateInstance(
+                &PortableDevicePropVariantCollection as *const GUID,
+                None,
+                CLSCTX_ALL
+            )
+        }.unwrap();
+        unsafe{ objects_to_move.Add(&id_as_propvariant as *const _) }.unwrap();
+
+        let dest = PCWSTR::from_raw(new_folder_id.as_ptr());
+        let mut result_status = None;
+        unsafe{
+            self.device_content.com_object().Move(
+                &objects_to_move,
+                dest,
+                &mut result_status as *mut _,
+            )
+        }.unwrap();
+
+        Ok(())
+    }
 }
 
 
