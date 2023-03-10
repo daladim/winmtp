@@ -27,6 +27,14 @@ pub enum OpenStreamError {
 }
 
 #[derive(thiserror::Error, Debug)]
+pub enum CreateFolderError {
+    #[error("Windows API error")]
+    Windows(#[from] crate::WindowsError),
+    #[error("There already is an object at this path")]
+    AlreadyExists,
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum AddFileError {
     #[error("Windows API error")]
     Windows(#[from] crate::WindowsError),

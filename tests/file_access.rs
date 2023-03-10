@@ -88,7 +88,16 @@ fn push_content(basic_device: &BasicDevice) {
     let device = basic_device.open(&app_identifiers).unwrap();
     let content = device.content().unwrap();
     let download_folder = content.root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
-    let test_folder_id = download_folder.create_subfolder("winmtp_test").unwrap();
+    let test_folder_id = match download_folder.create_subfolder("winmtp_test") {
+        Ok(id) => id,
+        Err(winmtp::error::CreateFolderError::AlreadyExists) => {
+            let existing_folder = download_folder.object_by_path(Path::new("winmtp_test")).unwrap();
+            existing_folder.delete(true).unwrap();
+            // and try again
+            download_folder.create_subfolder("winmtp_test").unwrap()
+        }
+        Err(err) => panic!("{}", err),
+    };
 
     let test_folder = content.object_by_id(test_folder_id).unwrap();
     test_folder.push_file(Path::new(r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3")).unwrap();

@@ -3,14 +3,16 @@
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 
-use windows::core::{PWSTR, PCWSTR};
-use windows::Win32::System::Com::{IStream, STGM, STGM_READ, CoTaskMemFree};
-use windows::Win32::Devices::PortableDevices::{WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT};
+use windows::core::{GUID, PWSTR, PCWSTR};
+use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_ALL};
+use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
+use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
+use windows::Win32::Devices::PortableDevices::{PortableDevicePropVariantCollection, IPortableDevicePropVariantCollection, PORTABLE_DEVICE_DELETE_WITH_RECURSION, PORTABLE_DEVICE_DELETE_NO_RECURSION, WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT};
 use widestring::{U16CString, U16CStr};
 
 use crate::device::Content;
 use crate::device::device_values::{make_values_for_create_folder, make_values_for_create_file};
-use crate::error::{ItemByPathError, OpenStreamError, AddFileError};
+use crate::error::{ItemByPathError, OpenStreamError, CreateFolderError, AddFileError};
 use crate::io::{ReadStream, WriteStream};
 
 mod object_id;
@@ -213,8 +215,56 @@ impl Object {
 
         Ok(())
     }
+
+    /// Delete an object
+    ///
+    /// If this is a folder, you must set `recursive` to `true`, otherwise this would return an error.
+    pub fn delete(mut self, recursive: bool) -> crate::WindowsResult<()> {
+        let id_as_propvariant = unsafe{ init_propvariant_from_string(&mut self.id) };
+
+        let objects_to_delete: IPortableDevicePropVariantCollection = unsafe {
+            CoCreateInstance(
+                &PortableDevicePropVariantCollection as *const GUID,
+                None,
+                CLSCTX_ALL
+            )
+        }.unwrap();
+        unsafe{ objects_to_delete.Add(&id_as_propvariant as *const _) }.unwrap();
+
+        let options = if recursive { PORTABLE_DEVICE_DELETE_WITH_RECURSION } else { PORTABLE_DEVICE_DELETE_NO_RECURSION };
+        let mut result_status = None;
+        unsafe{
+            self.device_content.com_object().Delete(
+                options.0 as u32,
+                &objects_to_delete,
+                &mut result_status as *mut _,
+            )
+        }.unwrap();
+
+        Ok(())
+    }
 }
 
+
+/// Re-implementation of `InitPropVariantFromString`, which is missing in windows-rs.
+/// See https://github.com/microsoft/windows-rs/issues/976#issuecomment-878697273
+///
+/// # Safety
+///
+/// I'm too lazy to wrap to result with a 'a PhantomData, so for now, the result is only valid as long `data` is valid.
+unsafe fn init_propvariant_from_string(data: &mut U16CStr) -> PROPVARIANT {
+    windows::Win32::System::Com::StructuredStorage::PROPVARIANT{
+        Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0 {
+            Anonymous: std::mem::ManuallyDrop::new(windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0 {
+                vt: windows::Win32::System::Com::VT_LPWSTR,
+                Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0_0 {
+                    pwszVal: PWSTR::from_raw(data.as_mut_ptr()),
+                },
+                ..Default::default()
+            })
+        },
+    }
+}
 
 fn object_by_components_last_stage(candidate: Object, next_components: &mut Peekable<Components>) -> Result<Object, ItemByPathError> {
     match next_components.peek() {
