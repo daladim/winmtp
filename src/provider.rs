@@ -1,5 +1,5 @@
 use windows::core::{GUID, PWSTR, PCWSTR} ;
-use windows::Win32::System::Com::{CoInitializeEx, CoCreateInstance, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{CoInitializeEx, CoCreateInstance, CoTaskMemFree, CLSCTX_ALL, COINIT_DISABLE_OLE1DDE, COINIT_MULTITHREADED};
 use windows::Win32::Devices::PortableDevices::IPortableDeviceManager;
 use widestring::U16CString;
 
@@ -11,7 +11,11 @@ pub struct Provider {}
 impl Provider {
     pub fn new() -> crate::WindowsResult<Self> {
         unsafe {
-            CoInitializeEx(None, COINIT_MULTITHREADED)?;
+            CoInitializeEx(
+                None,
+                COINIT_MULTITHREADED
+                | COINIT_DISABLE_OLE1DDE, // Setting this flag avoids some overhead associated with Object Linking and Embedding (OLE) 1.0, an obsolete technology. (see https://learn.microsoft.com/en-us/windows/win32/learnwin32/initializing-the-com-library)
+            )?;
         }
 
         Ok(Self{})
