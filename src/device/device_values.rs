@@ -12,6 +12,8 @@ use windows::Win32::Devices::PortableDevices::{
     WPD_OBJECT_PARENT_ID,
     WPD_OBJECT_CONTENT_TYPE,
     WPD_CONTENT_TYPE_FOLDER,
+    WPD_OBJECT_SIZE,
+    WPD_OBJECT_ORIGINAL_FILE_NAME,
 };
 use widestring::{U16CStr, U16CString};
 
@@ -87,6 +89,30 @@ pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &s
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_PARENT_ID as *const _, PCWSTR::from_raw(parent_id.as_ptr())) }?;
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_NAME as *const _, pcwstr_folder_name) }?;
     unsafe{ device_values.SetGuidValue(&WPD_OBJECT_CONTENT_TYPE as *const _, &WPD_CONTENT_TYPE_FOLDER as *const _) }?;
+
+    Ok(device_values)
+}
+
+pub(crate) fn make_values_for_create_file(parent_id: &U16CStr, file_name: &str, file_size: u64) -> crate::WindowsResult<IPortableDeviceValues> {
+    let device_values: IPortableDeviceValues = unsafe {
+        CoCreateInstance(
+            &PortableDeviceValues as *const GUID,
+            None,
+            CLSCTX_ALL
+        )
+    }?;
+
+    let file_name_wide = U16CString::from_str_truncate(file_name);
+    let pcwstr_file_name = PCWSTR::from_raw(file_name_wide.as_ptr());
+    unsafe{ device_values.SetStringValue(&WPD_OBJECT_PARENT_ID as *const _, PCWSTR::from_raw(parent_id.as_ptr())) }?;
+    unsafe{ device_values.SetUnsignedLargeIntegerValue(&WPD_OBJECT_SIZE as *const _, file_size) }?;
+    unsafe{ device_values.SetStringValue(&WPD_OBJECT_ORIGINAL_FILE_NAME as *const _, PCWSTR::from_raw(pcwstr_file_name.as_ptr())) }?;
+
+    // Microsoft code samples suggest we should also populate
+    // * WPD_OBJECT_NAME
+    // * WPD_OBJECT_CONTENT_TYPE
+    // * WPD_OBJECT_FORMAT
+    // But experience shows Android device happily work without these values.
 
     Ok(device_values)
 }

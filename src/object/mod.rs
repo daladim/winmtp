@@ -9,9 +9,9 @@ use windows::Win32::Devices::PortableDevices::{WPD_OBJECT_PARENT_ID, WPD_RESOURC
 use widestring::{U16CString, U16CStr};
 
 use crate::device::Content;
-use crate::device::device_values::make_values_for_create_folder;
-use crate::error::{ItemByPathError, OpenStreamError};
-use crate::io::ReadStream;
+use crate::device::device_values::{make_values_for_create_folder, make_values_for_create_file};
+use crate::error::{ItemByPathError, OpenStreamError, AddFileError};
+use crate::io::{ReadStream, WriteStream};
 
 mod object_id;
 pub use object_id::ObjectId;
@@ -186,6 +186,32 @@ impl Object {
         };
 
         Ok(owned_id)
+    }
+
+    /// Add a file into the current directory
+    pub fn push_file(&self, local_file: &Path) -> Result<(), AddFileError> {
+        let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?.to_string_lossy().to_string();
+        let file_size = local_file.metadata()?.len();
+
+        let mut source_reader = std::fs::File::open(local_file)?;
+
+        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let mut write_stream = None;
+        let mut optimal_write_buffer_size = 0;
+        unsafe{ self.device_content.com_object().CreateObjectWithPropertiesAndData(
+            &file_properties,
+            &mut write_stream as *mut _,
+            &mut optimal_write_buffer_size,
+            &mut PWSTR::null() as *mut PWSTR,
+        )}?;
+
+        let write_stream = write_stream.ok_or(AddFileError::UnableToCreate)?;
+        let mut dest_writer = WriteStream::new(write_stream, optimal_write_buffer_size as usize);
+        std::io::copy(&mut source_reader, &mut dest_writer)?;
+
+        dest_writer.commit()?;
+
+        Ok(())
     }
 }
 

@@ -3,7 +3,7 @@
 use std::ffi::c_void;
 use std::io::{Read, Write};
 
-use windows::Win32::System::Com::IStream;
+use windows::Win32::System::Com::{IStream, STGC_DEFAULT};
 use windows::Win32::Foundation::{S_OK, S_FALSE};
 
 /// A wrapper around a COM [`IStream`](windows::Win32::System::Com::IStream) that implements `std::io::Read`
@@ -67,14 +67,43 @@ impl WriteStream {
     pub fn optimal_transfer_size(&self) -> usize {
         self.optimal_transfer_size
     }
+
+    /// Call the COM `Commit` API
+    pub fn commit(&self) -> crate::WindowsResult<()> {
+        unsafe{ self.stream.Commit(STGC_DEFAULT) }
+    }
 }
 
 impl Write for WriteStream {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        todo!();
+        let requested_bytes = match buf.len().try_into() {
+            Ok(b) => b,
+            Err(_) => return Err(std::io::Error::new(std::io::ErrorKind::Other, "Requested too many bytes to read")),
+        };
+
+        let mut bytes_read: u32 = 0;
+        let res = unsafe{
+            self.stream.Write(
+                buf.as_ptr() as *const u8 as *const c_void,
+                requested_bytes,
+                Some(&mut bytes_read as *mut u32),
+            )
+        };
+
+        match res {
+            // regular case
+            S_OK => Ok(bytes_read as usize),
+
+            // Other error
+            err => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Unexpected error {:?} when writing into a stream", err))),
+        }
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        todo!();
+        self.commit().map_err(|err| std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Unexpected error {:?} when flushing a stream", err)))
     }
 }

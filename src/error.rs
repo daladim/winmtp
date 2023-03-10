@@ -25,3 +25,15 @@ pub enum OpenStreamError {
     #[error("MTP API did not return any stream")] // Will probably never happen, as a Windows error would be raised before. But we never know
     UnableToCreate,
 }
+
+#[derive(thiserror::Error, Debug)]
+pub enum AddFileError {
+    #[error("Windows API error")]
+    Windows(#[from] crate::WindowsError),
+    #[error("std::io error")]
+    Std(#[from] std::io::Error),
+    #[error("Invalid local file")]
+    InvalidLocalFile,
+    #[error("MTP API did not return any stream")] // Will probably never happen, as a Windows error would be raised before. But we never know
+    UnableToCreate,
+}
