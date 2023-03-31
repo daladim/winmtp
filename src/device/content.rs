@@ -31,6 +31,14 @@ impl Content {
         self.object_by_id(unsafe{ U16CString::from_ptr_str(WPD_DEVICE_OBJECT_ID.as_ptr()) })
     }
 
+    /// List all functional objects for this device
+    pub fn functional_objects(&self) -> crate::WindowsResult<Vec<Object>> {
+        Ok(self.root()?
+            .children()?
+            .filter(|child| child.object_type() == ObjectType::FunctionalObject)
+            .collect())
+    }
+
     /// Get an MPT object given its MTP object ID
     pub fn object_by_id(&self, object_id: U16CString) -> crate::WindowsResult<Object> {
         // Get object name and type

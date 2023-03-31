@@ -25,6 +25,10 @@ impl BasicDevice {
         Self{ device_id, friendly_name }
     }
 
+    pub fn device_id(&self) -> String {
+        self.device_id.to_string_lossy() // We trust Windows for not providing invalid UTF-16 characters
+    }
+
     pub fn friendly_name(&self) -> &str {
         &self.friendly_name
     }
