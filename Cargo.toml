@@ -2,6 +2,14 @@
 name = "winmtp"
 version = "0.1.0"
 edition = "2021"
+authors = ["daladim"]
+description = "Bindings over Windows MTP API"
+repository = "https://github.com/daladim/winmtp"
+documentation = "https://docs.rs/winmtp"
+license = "MIT"
+readme = "README.md"
+keywords = ["MTP", "API", "windows", "android", "file"]
+categories = ["api-bindings", "multimedia", "filesystem", "hardware-support"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
