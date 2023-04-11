@@ -39,7 +39,7 @@ impl Content {
             .collect())
     }
 
-    /// Get an MPT object given its MTP object ID
+    /// Get an MTP object given its MTP object ID
     pub fn object_by_id(&self, object_id: U16CString) -> crate::WindowsResult<Object> {
         // Get object name and type
         let basic_properties = self.get_object_properties(&object_id, &[WPD_OBJECT_NAME, WPD_OBJECT_CONTENT_TYPE])?;

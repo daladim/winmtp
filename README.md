@@ -6,4 +6,4 @@ This makes it possible to use the Media Transfer Protocol on Windows, e.g. to tr
 
 ## Documentation
 
-Documentation of this crate can be found on [docs.rs](https://docs.rs/wintmp)
+Documentation of this crate can be found on [docs.rs](https://docs.rs/winmtp)
