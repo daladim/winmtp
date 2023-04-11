@@ -169,7 +169,7 @@ impl Object {
     }
 
     /// Create a subfolder, and return its object ID
-    pub fn create_subfolder(&self, folder_name: &str) -> Result<U16CString, CreateFolderError> {
+    pub fn create_subfolder(&self, folder_name: &OsStr) -> Result<U16CString, CreateFolderError> {
         // Check if such an item already exist (otherwise, `CreateObjectWithPropertiesOnly` would return an unhelpful "Unspecified error ")
         if let Ok(_existing_item) = self.object_by_path(Path::new(folder_name)) {
             return Err(CreateFolderError::AlreadyExists)
@@ -192,23 +192,28 @@ impl Object {
 
     /// Add a file into the current directory
     pub fn push_file(&self, local_file: &Path) -> Result<(), AddFileError> {
-        let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?.to_string_lossy().to_string();
+        let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?;
         let file_size = local_file.metadata()?.len();
 
+        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
+
         let mut source_reader = std::fs::File::open(local_file)?;
+        std::io::copy(&mut source_reader, &mut dest_writer)?;
+
+        dest_writer.commit()?;
+
+        Ok(())
+    }
+
+    /// Add a file into the current directory
+    pub fn push_data(&self, file_name: &OsStr, data: &[u8]) -> Result<(), AddFileError> {
+        let file_size = data.len() as u64;
 
         let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
-        let mut write_stream = None;
-        let mut optimal_write_buffer_size = 0;
-        unsafe{ self.device_content.com_object().CreateObjectWithPropertiesAndData(
-            &file_properties,
-            &mut write_stream as *mut _,
-            &mut optimal_write_buffer_size,
-            &mut PWSTR::null() as *mut PWSTR,
-        )}?;
+        let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
 
-        let write_stream = write_stream.ok_or(AddFileError::UnableToCreate)?;
-        let mut dest_writer = WriteStream::new(write_stream, optimal_write_buffer_size as usize);
+        let mut source_reader = std::io::BufReader::new(data);
         std::io::copy(&mut source_reader, &mut dest_writer)?;
 
         dest_writer.commit()?;
@@ -303,4 +308,18 @@ fn object_by_components_last_stage(candidate: Object, next_components: &mut Peek
             candidate.object_by_components(next_components)
         }
     }
+}
+
+fn make_dest_writer(com_object: &IPortableDeviceContent, file_properties: &IPortableDeviceValues) -> Result<WriteStream, AddFileError> {
+    let mut write_stream = None;
+    let mut optimal_write_buffer_size = 0;
+    unsafe{ com_object.CreateObjectWithPropertiesAndData(
+        file_properties,
+        &mut write_stream as *mut _,
+        &mut optimal_write_buffer_size,
+        &mut PWSTR::null() as *mut PWSTR,
+    )}?;
+
+    let write_stream = write_stream.ok_or(AddFileError::UnableToCreate)?;
+    Ok(WriteStream::new(write_stream, optimal_write_buffer_size as usize))
 }

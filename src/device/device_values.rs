@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+
 use windows::core::{GUID, PCWSTR};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::Win32::Storage::FileSystem::SECURITY_IMPERSONATION;
@@ -74,7 +76,7 @@ pub(crate) fn make_values_for_open_device(current_app_identifiers: &AppIdentifie
     Ok(device_values)
 }
 
-pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &str) -> crate::WindowsResult<IPortableDeviceValues> {
+pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &OsStr) -> crate::WindowsResult<IPortableDeviceValues> {
     let device_values: IPortableDeviceValues = unsafe {
         CoCreateInstance(
             &PortableDeviceValues as *const GUID,
@@ -83,7 +85,7 @@ pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &s
         )
     }?;
 
-    let folder_name_wide = U16CString::from_str_truncate(folder_name);
+    let folder_name_wide = U16CString::from_os_str_truncate(folder_name);
     let pcwstr_folder_name = PCWSTR::from_raw(folder_name_wide.as_ptr());
 
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_PARENT_ID as *const _, PCWSTR::from_raw(parent_id.as_ptr())) }?;
@@ -93,7 +95,7 @@ pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &s
     Ok(device_values)
 }
 
-pub(crate) fn make_values_for_create_file(parent_id: &U16CStr, file_name: &str, file_size: u64) -> crate::WindowsResult<IPortableDeviceValues> {
+pub(crate) fn make_values_for_create_file(parent_id: &U16CStr, file_name: &OsStr, file_size: u64) -> crate::WindowsResult<IPortableDeviceValues> {
     let device_values: IPortableDeviceValues = unsafe {
         CoCreateInstance(
             &PortableDeviceValues as *const GUID,
@@ -102,7 +104,7 @@ pub(crate) fn make_values_for_create_file(parent_id: &U16CStr, file_name: &str, 
         )
     }?;
 
-    let file_name_wide = U16CString::from_str_truncate(file_name);
+    let file_name_wide = U16CString::from_os_str_truncate(file_name);
     let pcwstr_file_name = PCWSTR::from_raw(file_name_wide.as_ptr());
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_PARENT_ID as *const _, PCWSTR::from_raw(parent_id.as_ptr())) }?;
     unsafe{ device_values.SetUnsignedLargeIntegerValue(&WPD_OBJECT_SIZE as *const _, file_size) }?;
