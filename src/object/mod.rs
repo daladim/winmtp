@@ -257,7 +257,7 @@ impl Object {
     /// Delete an object
     ///
     /// If this is a folder, you must set `recursive` to `true`, otherwise this would return an error.
-    pub fn delete(mut self, recursive: bool) -> crate::WindowsResult<()> {
+    pub fn delete(&mut self, recursive: bool) -> crate::WindowsResult<()> {
         let id_as_propvariant = unsafe{ init_propvariant_from_string(&mut self.id) };
 
         let objects_to_delete: IPortableDevicePropVariantCollection = unsafe {
