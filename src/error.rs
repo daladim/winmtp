@@ -32,6 +32,8 @@ pub enum CreateFolderError {
     Windows(#[from] crate::WindowsError),
     #[error("There already is an object at this path")]
     AlreadyExists,
+    #[error("Path should be relative, without any parent (..) component")]
+    NonRelativePath,
 }
 
 #[derive(thiserror::Error, Debug)]

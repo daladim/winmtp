@@ -2,12 +2,16 @@
 
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
+use std::ffi::OsStr;
 
 use windows::core::{GUID, PWSTR, PCWSTR};
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_ALL};
 use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
 use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
-use windows::Win32::Devices::PortableDevices::{PortableDevicePropVariantCollection, IPortableDevicePropVariantCollection, PORTABLE_DEVICE_DELETE_WITH_RECURSION, PORTABLE_DEVICE_DELETE_NO_RECURSION, WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT};
+use windows::Win32::Devices::PortableDevices::{
+    PortableDevicePropVariantCollection, IPortableDeviceValues, IPortableDevicePropVariantCollection, IPortableDeviceContent,
+    PORTABLE_DEVICE_DELETE_WITH_RECURSION, PORTABLE_DEVICE_DELETE_NO_RECURSION, WPD_OBJECT_PARENT_ID, WPD_RESOURCE_DEFAULT,
+};
 use widestring::{U16CString, U16CStr};
 
 use crate::device::Content;
@@ -169,6 +173,8 @@ impl Object {
     }
 
     /// Create a subfolder, and return its object ID
+    ///
+    /// See also [`Self::create_subfolder_recursive`]
     pub fn create_subfolder(&self, folder_name: &OsStr) -> Result<U16CString, CreateFolderError> {
         // Check if such an item already exist (otherwise, `CreateObjectWithPropertiesOnly` would return an unhelpful "Unspecified error ")
         if let Ok(_existing_item) = self.object_by_path(Path::new(folder_name)) {
@@ -188,6 +194,33 @@ impl Object {
         };
 
         Ok(owned_id)
+    }
+
+    /// Create a path of folders, creating intermediate folders if needed
+    pub fn create_subfolder_recursive(&self, folder_path: &Path) -> Result<(), CreateFolderError> {
+        let comps = folder_path.components();
+        self.create_subfolder_recursive_inner(comps)
+    }
+
+    fn create_subfolder_recursive_inner(&self, mut remaining_components: Components) -> Result<(), CreateFolderError> {
+        match remaining_components.next() {
+            None => {},
+            Some(Component::Normal(dir)) => {
+                match self.sub_folders()?.find(|f| &f.name().to_os_string() == dir) {
+                    Some(already_exists) => {
+                        already_exists.create_subfolder_recursive_inner(remaining_components)?;
+                    },
+                    None => {
+                        let created_folder_id = self.create_subfolder(dir)?;
+                        let created_folder = self.device_content.object_by_id(created_folder_id)?;
+                        created_folder.create_subfolder_recursive_inner(remaining_components)?;
+                    }
+                }
+            },
+            _ => return Err(CreateFolderError::NonRelativePath),
+        }
+
+        Ok(())
     }
 
     /// Add a file into the current directory
