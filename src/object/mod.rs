@@ -227,9 +227,10 @@ impl Object {
     }
 
     /// Add a file into the current directory
-    pub fn push_file(&self, local_file: &Path) -> Result<(), AddFileError> {
+    pub fn push_file(&self, local_file: &Path, allow_overwrite: bool) -> Result<(), AddFileError> {
         let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?;
         let file_size = local_file.metadata()?.len();
+        self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
         let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
@@ -243,8 +244,9 @@ impl Object {
     }
 
     /// Add a file into the current directory
-    pub fn push_data(&self, file_name: &OsStr, data: &[u8]) -> Result<(), AddFileError> {
+    pub fn push_data(&self, file_name: &OsStr, data: &[u8], allow_overwrite: bool) -> Result<(), AddFileError> {
         let file_size = data.len() as u64;
+        self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
         let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
@@ -254,6 +256,17 @@ impl Object {
 
         dest_writer.commit()?;
 
+        Ok(())
+    }
+
+    fn remove_existing_file_if_needed(&self, file_name: &OsStr, allow_overwrite: bool) -> Result<(), AddFileError> {
+        if let Ok(mut existing_file) = self.object_by_path(Path::new(file_name)) {
+            if allow_overwrite {
+                existing_file.delete(false)?;
+            } else {
+                return Err(AddFileError::AlreadyExists);
+            }
+        }
         Ok(())
     }
 

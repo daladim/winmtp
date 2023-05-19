@@ -44,6 +44,8 @@ pub enum AddFileError {
     Std(#[from] std::io::Error),
     #[error("Invalid local file")]
     InvalidLocalFile,
+    #[error("A file already exists at this path")]
+    AlreadyExists,
     #[error("MTP API did not return any stream")] // Will probably never happen, as a Windows error would be raised before. But we never know
     UnableToCreate,
 }
