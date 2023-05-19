@@ -113,4 +113,17 @@ impl ObjectType {
             Self::Unknown            => WPD_CONTENT_TYPE_ALL,    // Not sure about this one...
         }
     }
+
+    /// Returns whether this object matches my opiniated way of seeing what a file should be like
+    pub fn is_file_like(&self) -> bool {
+        return false == matches!(self,
+            Self::AudioAlbum |
+            Self::ContactGroup |
+            Self::Folder |
+            Self::FunctionalObject |
+            Self::ImageAlbum |
+            Self::MixedContentAlbum |
+            Self::VideoAlbum
+        )
+    }
 }
