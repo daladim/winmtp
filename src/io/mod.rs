@@ -81,18 +81,18 @@ impl Write for WriteStream {
             Err(_) => return Err(std::io::Error::new(std::io::ErrorKind::Other, "Requested too many bytes to read")),
         };
 
-        let mut bytes_read: u32 = 0;
+        let mut bytes_written: u32 = 0;
         let res = unsafe{
             self.stream.Write(
                 buf.as_ptr() as *const u8 as *const c_void,
                 requested_bytes,
-                Some(&mut bytes_read as *mut u32),
+                Some(&mut bytes_written as *mut u32),
             )
         };
 
         match res {
             // regular case
-            S_OK => Ok(bytes_read as usize),
+            S_OK => Ok(bytes_written as usize),
 
             // Other error
             err => Err(std::io::Error::new(
