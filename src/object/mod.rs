@@ -1,5 +1,6 @@
 //! MTP object (can be a folder, a file, etc.)
 
+use std::io::BufReader;
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 use std::ffi::OsStr;
@@ -167,9 +168,11 @@ impl Object {
     /// let mut output_file = std::fs::File::create("pulled-from-device.dat").unwrap();
     /// std::io::copy(&mut input_stream, &mut output_file).unwrap();
     /// ```
-    pub fn open_read_stream(&self) -> Result<ReadStream, OpenStreamError> {
+    pub fn open_read_stream(&self) -> Result<BufReader<ReadStream>, OpenStreamError> {
         let (stream, optimal_transfer_size) = self.open_raw_stream(STGM_READ)?;
-        Ok(ReadStream::new(stream, optimal_transfer_size as usize))
+        let read_stream = ReadStream::new(stream, optimal_transfer_size as usize);
+        // Reader this reader is a slow process. Let's wrap it in a buffered reader for optimal perfs.
+        Ok(BufReader::with_capacity(optimal_transfer_size as usize, read_stream))
     }
 
     /// Create a subfolder, and return its object ID
