@@ -19,6 +19,7 @@ use crate::device::Content;
 use crate::device::device_values::{make_values_for_create_folder, make_values_for_create_file};
 use crate::error::{ItemByPathError, OpenStreamError, CreateFolderError, AddFileError};
 use crate::io::{ReadStream, WriteStream};
+use crate::utils::are_path_eq;
 
 mod object_id;
 pub use object_id::ObjectId;
@@ -99,11 +100,10 @@ impl Object {
 
     fn object_by_components(&self, comps: &mut Peekable<Components>) -> Result<Object, ItemByPathError> {
         match comps.next() {
-            Some(Component::Normal(name)) => {
-                let haystack = U16CString::from_os_str_truncate(name);
+            Some(Component::Normal(haystack)) => {
                 let candidate = self
                     .children()?
-                    .find(|obj| obj.name() == haystack)
+                    .find(|obj| are_path_eq(obj.name(), haystack, self.device_content.case_sensitive_fs()))
                     .ok_or(ItemByPathError::NotFound)?;
 
                 object_by_components_last_stage(candidate, comps)
@@ -177,6 +177,8 @@ impl Object {
 
     /// Create a subfolder, and return its object ID
     ///
+    /// If a folder with the same name already exists ("same name" depends on the chosen case-folding mode), an `CreateFolderError::AlreadyExists` error will be returned.
+    ///
     /// See also [`Self::create_subfolder_recursive`]
     pub fn create_subfolder(&self, folder_name: &OsStr) -> Result<U16CString, CreateFolderError> {
         // Check if such an item already exist (otherwise, `CreateObjectWithPropertiesOnly` would return an unhelpful "Unspecified error ")
@@ -209,7 +211,7 @@ impl Object {
         match remaining_components.next() {
             None => {},
             Some(Component::Normal(dir)) => {
-                match self.sub_folders()?.find(|f| &f.name().to_os_string() == dir) {
+                match self.sub_folders()?.find(|f| are_path_eq(&f.name(), dir, self.device_content().case_sensitive_fs())) {
                     Some(already_exists) => {
                         already_exists.create_subfolder_recursive_inner(remaining_components)?;
                     },

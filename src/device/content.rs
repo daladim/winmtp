@@ -14,16 +14,21 @@ use crate::object::{Object, ObjectType};
 /// Abstraction over the content of a device
 pub struct Content{
     com_content: IPortableDeviceContent,
+    case_sensitive_fs: bool,
 }
 
 impl Content {
-    pub(crate) fn new(com_content: IPortableDeviceContent) -> Self {
-        Self{ com_content }
+    pub(crate) fn new(com_content: IPortableDeviceContent, case_sensitive_fs: bool) -> Self {
+        Self{ com_content, case_sensitive_fs }
     }
 
     /// Retrieve the inner COM object, in case one wants to call a method for which there is no wrapper in this crate
     pub fn com_object(&self) -> &IPortableDeviceContent {
         &self.com_content
+    }
+
+    pub fn case_sensitive_fs(&self) -> bool {
+        self.case_sensitive_fs
     }
 
     /// Get the root object of the current device

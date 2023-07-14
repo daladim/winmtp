@@ -29,6 +29,7 @@ pub use provider::Provider;
 
 pub mod device;
 pub mod object;
+pub mod utils;
 
 pub mod error;
 
