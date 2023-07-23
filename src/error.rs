@@ -1,6 +1,6 @@
 #[derive(thiserror::Error, Debug)]
 pub enum MtpError {
-    #[error("Windows API error")]
+    #[error("Windows API error ({0})")]
     Windows(#[from] crate::WindowsError),
     #[error("Incoherent results from successive calls to Windows API")]
     ChangedConditions,
@@ -10,7 +10,7 @@ pub enum MtpError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ItemByPathError {
-    #[error("Windows API error")]
+    #[error("Windows API error ({0})")]
     Windows(#[from] crate::WindowsError),
     #[error("Path not found")]
     NotFound,
@@ -20,7 +20,7 @@ pub enum ItemByPathError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum OpenStreamError {
-    #[error("Windows API error")]
+    #[error("Windows API error ({0})")]
     Windows(#[from] crate::WindowsError),
     #[error("MTP API did not return any stream")] // Will probably never happen, as a Windows error would be raised before. But we never know
     UnableToCreate,
@@ -28,7 +28,7 @@ pub enum OpenStreamError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum CreateFolderError {
-    #[error("Windows API error")]
+    #[error("Windows API error ({0})")]
     Windows(#[from] crate::WindowsError),
     #[error("There already is an object at this path")]
     AlreadyExists,
@@ -38,9 +38,9 @@ pub enum CreateFolderError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum AddFileError {
-    #[error("Windows API error")]
+    #[error("Windows API error ({0})")]
     Windows(#[from] crate::WindowsError),
-    #[error("std::io error")]
+    #[error("std::io error ({0})")]
     Std(#[from] std::io::Error),
     #[error("Invalid local file")]
     InvalidLocalFile,
