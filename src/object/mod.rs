@@ -172,6 +172,7 @@ impl Object {
         let (stream, optimal_transfer_size) = self.open_raw_stream(STGM_READ)?;
         let read_stream = ReadStream::new(stream, optimal_transfer_size as usize);
         // Reader this reader is a slow process. Let's wrap it in a buffered reader for optimal perfs.
+        // (There is no obvious reason for the capacity to be the same as the transfer size, but let's use it anyway)
         Ok(BufReader::with_capacity(optimal_transfer_size as usize, read_stream))
     }
 
