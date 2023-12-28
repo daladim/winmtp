@@ -54,7 +54,6 @@ impl BasicDevice {
         unsafe { com_device.Open(PCWSTR::from_raw(self.device_id.as_ptr()), &device_values) }.unwrap();
 
         Ok(Device{
-            basic_device: self.clone(),
             com_device,
             case_sensitive_fs,
         })
@@ -63,7 +62,6 @@ impl BasicDevice {
 
 /// An MTP device that as been opened
 pub struct Device {
-    basic_device: BasicDevice,
     com_device: IPortableDevice,
     case_sensitive_fs: bool,
 }

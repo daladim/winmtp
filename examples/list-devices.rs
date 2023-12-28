@@ -1,13 +1,8 @@
-use std::path::Path;
 use std::error::Error;
-
-use windows::core::PCWSTR;
-use widestring::{U16CString, U16CStr};
 
 use winmtp::Provider;
 use winmtp::device::BasicDevice;
 use winmtp::device::device_values::AppIdentifiers;
-use winmtp::object::ObjectId;
 
 fn main() {
     let provider = Provider::new().unwrap();

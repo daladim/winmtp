@@ -217,7 +217,7 @@ impl Object {
         match remaining_components.next() {
             None => {},
             Some(Component::Normal(dir)) => {
-                match self.sub_folders()?.find(|f| are_path_eq(&f.name(), dir, self.device_content().case_sensitive_fs())) {
+                match self.sub_folders()?.find(|f| are_path_eq(f.name(), dir, self.device_content().case_sensitive_fs())) {
                     Some(already_exists) => {
                         already_exists.create_subfolder_recursive_inner(remaining_components)?;
                     },
@@ -240,7 +240,7 @@ impl Object {
         let file_size = local_file.metadata()?.len();
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
-        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
 
         let mut source_reader = std::fs::File::open(local_file)?;
@@ -256,7 +256,7 @@ impl Object {
         let file_size = data.len() as u64;
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
-        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
 
         let mut source_reader = std::io::BufReader::new(data);

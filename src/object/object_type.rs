@@ -116,7 +116,7 @@ impl ObjectType {
 
     /// Returns whether this object matches my opiniated way of seeing what a file should be like
     pub fn is_file_like(&self) -> bool {
-        return false == matches!(self,
+        !matches!(self,
             Self::AudioAlbum |
             Self::ContactGroup |
             Self::Folder |

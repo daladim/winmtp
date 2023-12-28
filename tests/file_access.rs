@@ -2,15 +2,12 @@
 
 use std::ffi::OsStr;
 use std::path::Path;
-use std::error::Error;
 
-use windows::core::PCWSTR;
-use widestring::{U16CString, U16CStr};
+use widestring::U16CString;
 
 use winmtp::Provider;
 use winmtp::device::BasicDevice;
 use winmtp::device::device_values::AppIdentifiers;
-use winmtp::object::ObjectId;
 use winmtp::object::ObjectType;
 
 #[test]
