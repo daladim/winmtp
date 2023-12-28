@@ -38,4 +38,4 @@ pub use windows::core::Result as WindowsResult;
 /// Re-exported from the windows-rs crate, because it is used in our public API.<br/>
 pub use windows::core::Error as WindowsError;
 /// Re-exported from the windows-rs crate, because it is used in our public API.<br/>
-use windows::Win32::Devices::PortableDevices::IPortableDevice;
+pub use windows::Win32::Devices::PortableDevices;

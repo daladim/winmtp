@@ -1,9 +1,8 @@
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::core::{GUID, PCWSTR} ;
-use windows::Win32::Devices::PortableDevices::PortableDeviceFTM;
+use windows::Win32::Devices::PortableDevices::{PortableDeviceFTM, IPortableDevice};
 use widestring::U16CString;
 
-use crate::IPortableDevice;
 use crate::device::device_values::AppIdentifiers;
 
 pub mod device_values;

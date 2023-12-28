@@ -65,6 +65,10 @@ impl Object {
         self.ty
     }
 
+    pub fn get_object_properties(&self, properties_to_fetch: &[PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
+        self.device_content.get_object_properties(&self.id, properties_to_fetch)
+    }
+
     pub fn parent_id(&self) -> crate::WindowsResult<U16CString> {
         let parent_id_props = self.device_content.get_object_properties(&self.id, &[WPD_OBJECT_PARENT_ID])?;
         let parent_id_pwstr = unsafe{ parent_id_props.GetStringValue(&WPD_OBJECT_PARENT_ID as *const _) }?;
