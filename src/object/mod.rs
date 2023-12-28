@@ -5,6 +5,7 @@ use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 use std::ffi::OsStr;
 
+use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use windows::core::{GUID, PWSTR, PCWSTR};
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_ALL};
 use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
@@ -339,7 +340,7 @@ unsafe fn init_propvariant_from_string(data: &mut U16CStr) -> PROPVARIANT {
     windows::Win32::System::Com::StructuredStorage::PROPVARIANT{
         Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0 {
             Anonymous: std::mem::ManuallyDrop::new(windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0 {
-                vt: windows::Win32::System::Com::VT_LPWSTR,
+                vt: windows::Win32::System::Variant::VT_LPWSTR,
                 Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0_0 {
                     pwszVal: PWSTR::from_raw(data.as_mut_ptr()),
                 },
