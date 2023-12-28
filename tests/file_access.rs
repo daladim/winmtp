@@ -1,5 +1,6 @@
 //! These test should succeed when an Android device is connected.
 
+use std::ffi::OsStr;
 use std::path::Path;
 use std::error::Error;
 
@@ -28,7 +29,7 @@ fn file_access() {
 fn access_by_path(basic_device: &BasicDevice) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
-    let device = basic_device.open(&app_ident).unwrap();
+    let device = basic_device.open(&app_ident, true).unwrap();
     let content = device.content().unwrap();
 
     let root_obj = content.root().unwrap();
@@ -72,7 +73,7 @@ fn access_by_path(basic_device: &BasicDevice) {
 fn access_by_id(basic_device: &BasicDevice) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
-    let device = basic_device.open(&app_ident).unwrap();
+    let device = basic_device.open(&app_ident, true).unwrap();
     let content = device.content().unwrap();
 
     let root_obj = content.root().unwrap();
@@ -85,29 +86,29 @@ fn push_content(basic_device: &BasicDevice) {
     // let provider = winmtp::Provider::new().unwrap();
     // let basic_device = provider.enumerate_devices().unwrap()[0];
     let app_identifiers = winmtp::make_current_app_identifiers!();
-    let device = basic_device.open(&app_identifiers).unwrap();
+    let device = basic_device.open(&app_identifiers, true).unwrap();
     let content = device.content().unwrap();
     let download_folder = content.root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
-    let test_folder_id = match download_folder.create_subfolder("winmtp_test") {
+    let test_folder_id = match download_folder.create_subfolder(OsStr::new("winmtp_test")) {
         Ok(id) => id,
         Err(winmtp::error::CreateFolderError::AlreadyExists) => {
-            let existing_folder = download_folder.object_by_path(Path::new("winmtp_test")).unwrap();
+            let mut existing_folder = download_folder.object_by_path(Path::new("winmtp_test")).unwrap();
             existing_folder.delete(true).unwrap();
             // and try again
-            download_folder.create_subfolder("winmtp_test").unwrap()
+            download_folder.create_subfolder(OsStr::new("winmtp_test")).unwrap()
         }
         Err(err) => panic!("{}", err),
     };
 
     let test_folder = content.object_by_id(test_folder_id).unwrap();
-    test_folder.push_file(Path::new(r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3")).unwrap();
+    test_folder.push_file(Path::new(r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3"), true).unwrap();
 }
 
 fn pull_content(basic_device: &BasicDevice) {
     // let provider = winmtp::Provider::new().unwrap();
     // let basic_device = provider.enumerate_devices().unwrap()[0];
     let app_identifiers = winmtp::make_current_app_identifiers!();
-    let device = basic_device.open(&app_identifiers).unwrap();
+    let device = basic_device.open(&app_identifiers, true).unwrap();
     let object = device.content().unwrap().root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\winmtp_test\Rough Draft (open source mp3 from audiohub.com).mp3")).unwrap();
     let mut input_stream = object.open_read_stream().unwrap();
     let mut output_file = std::fs::File::create(r"tests\assets\pulled-from-device.dat").unwrap();
