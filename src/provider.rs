@@ -9,6 +9,9 @@ use crate::error::MtpError;
 pub struct Provider {}
 
 impl Provider {
+    /// Entry point of this crate.
+    ///
+    /// It internally inits the underlying Windows API.
     pub fn new() -> crate::WindowsResult<Self> {
         unsafe {
             CoInitializeEx(
