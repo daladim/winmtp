@@ -5,7 +5,6 @@ use windows::core::{PCWSTR, GUID};
 use windows::Win32::Devices::PortableDevices::{
     IPortableDeviceContent, IPortableDeviceKeyCollection, PortableDeviceKeyCollection, IPortableDeviceValues, WPD_OBJECT_NAME, WPD_OBJECT_CONTENT_TYPE, WPD_DEVICE_OBJECT_ID
 };
-use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use widestring::{U16CString, U16CStr};
 
 use crate::object::{Object, ObjectType};
@@ -57,7 +56,7 @@ impl Content {
         Ok(Object::new(self.clone(), object_id, name, object_type))
     }
 
-    pub fn get_object_properties(&self, object_id: &U16CStr, properties_to_fetch: &[PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
+    pub fn get_object_properties(&self, object_id: &U16CStr, properties_to_fetch: &[crate::PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
         let props_to_read: IPortableDeviceKeyCollection = unsafe {
             CoCreateInstance(
                 &PortableDeviceKeyCollection as *const GUID,

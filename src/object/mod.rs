@@ -5,7 +5,6 @@ use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 use std::ffi::OsStr;
 
-use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use windows::core::{GUID, PWSTR, PCWSTR};
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_ALL};
 use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
@@ -65,7 +64,8 @@ impl Object {
         self.ty
     }
 
-    pub fn get_object_properties(&self, properties_to_fetch: &[PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
+    // TODO: we might want one day to wrap the returned `IPortableDeviceValues` into a Rust object with a more idiomatic API (e.g. close to the `HashMap`)
+    pub fn get_object_properties(&self, properties_to_fetch: &[crate::PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
         self.device_content.get_object_properties(&self.id, properties_to_fetch)
     }
 
