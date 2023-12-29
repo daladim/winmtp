@@ -1,9 +1,8 @@
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::core::{GUID, PCWSTR} ;
-use windows::Win32::Devices::PortableDevices::PortableDeviceFTM;
+use windows::Win32::Devices::PortableDevices::{PortableDeviceFTM, IPortableDevice};
 use widestring::U16CString;
 
-use crate::IPortableDevice;
 use crate::device::device_values::AppIdentifiers;
 
 pub mod device_values;
@@ -55,7 +54,6 @@ impl BasicDevice {
         unsafe { com_device.Open(PCWSTR::from_raw(self.device_id.as_ptr()), &device_values) }.unwrap();
 
         Ok(Device{
-            basic_device: self.clone(),
             com_device,
             case_sensitive_fs,
         })
@@ -64,7 +62,6 @@ impl BasicDevice {
 
 /// An MTP device that as been opened
 pub struct Device {
-    basic_device: BasicDevice,
     com_device: IPortableDevice,
     case_sensitive_fs: bool,
 }

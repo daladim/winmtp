@@ -32,7 +32,7 @@ impl Read for ReadStream {
         let mut bytes_read: u32 = 0;
         let res = unsafe{
             self.stream.Read(
-                buf.as_mut_ptr() as *mut u8 as *mut c_void,
+                buf.as_mut_ptr() as *mut c_void,
                 requested_bytes,
                 Some(&mut bytes_read as *mut u32),
             )
@@ -84,7 +84,7 @@ impl Write for WriteStream {
         let mut bytes_written: u32 = 0;
         let res = unsafe{
             self.stream.Write(
-                buf.as_ptr() as *const u8 as *const c_void,
+                buf.as_ptr() as *const c_void,
                 requested_bytes,
                 Some(&mut bytes_written as *mut u32),
             )

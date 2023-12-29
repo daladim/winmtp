@@ -5,6 +5,7 @@ use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 use std::ffi::OsStr;
 
+use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use windows::core::{GUID, PWSTR, PCWSTR};
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_ALL};
 use windows::Win32::System::Com::{IStream, STGM, STGM_READ};
@@ -62,6 +63,10 @@ impl Object {
     pub fn object_type(&self) -> ObjectType {
         // TODO: lazy evaluation?
         self.ty
+    }
+
+    pub fn get_object_properties(&self, properties_to_fetch: &[PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
+        self.device_content.get_object_properties(&self.id, properties_to_fetch)
     }
 
     pub fn parent_id(&self) -> crate::WindowsResult<U16CString> {
@@ -212,7 +217,7 @@ impl Object {
         match remaining_components.next() {
             None => {},
             Some(Component::Normal(dir)) => {
-                match self.sub_folders()?.find(|f| are_path_eq(&f.name(), dir, self.device_content().case_sensitive_fs())) {
+                match self.sub_folders()?.find(|f| are_path_eq(f.name(), dir, self.device_content().case_sensitive_fs())) {
                     Some(already_exists) => {
                         already_exists.create_subfolder_recursive_inner(remaining_components)?;
                     },
@@ -235,7 +240,7 @@ impl Object {
         let file_size = local_file.metadata()?.len();
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
-        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
 
         let mut source_reader = std::fs::File::open(local_file)?;
@@ -251,7 +256,7 @@ impl Object {
         let file_size = data.len() as u64;
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
 
-        let file_properties = make_values_for_create_file(&self.id, &file_name, file_size)?;
+        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
 
         let mut source_reader = std::io::BufReader::new(data);
@@ -339,7 +344,7 @@ unsafe fn init_propvariant_from_string(data: &mut U16CStr) -> PROPVARIANT {
     windows::Win32::System::Com::StructuredStorage::PROPVARIANT{
         Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0 {
             Anonymous: std::mem::ManuallyDrop::new(windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0 {
-                vt: windows::Win32::System::Com::VT_LPWSTR,
+                vt: windows::Win32::System::Variant::VT_LPWSTR,
                 Anonymous: windows::Win32::System::Com::StructuredStorage::PROPVARIANT_0_0_0 {
                     pwszVal: PWSTR::from_raw(data.as_mut_ptr()),
                 },
