@@ -141,7 +141,7 @@ impl Object {
     ///
     /// Also returns the optimal transfer buffer size (in bytes) for this transfer, as stated by the Microsoft API.
     ///
-    /// See also [`Self::open_read_stream`] and [`Self::open_write_stream`].
+    /// See also [`Self::open_read_stream`].
     pub fn open_raw_stream(&self, stream_mode: STGM) -> Result<(IStream, u32), OpenStreamError> {
         let resources = unsafe{ self.device_content.com_object().Transfer()? };
 
