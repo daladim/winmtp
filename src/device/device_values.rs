@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 
 use windows::core::{GUID, PCWSTR};
-use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, CoTaskMemFree};
 use windows::Win32::Storage::FileSystem::SECURITY_IMPERSONATION;
 use windows::Win32::Devices::PortableDevices::{
     PortableDeviceValues, IPortableDeviceValues,
@@ -117,4 +117,49 @@ pub(crate) fn make_values_for_create_file(parent_id: &U16CStr, file_name: &OsStr
     // But experience shows Android device happily work without these values.
 
     Ok(device_values)
+}
+
+
+/// A wrapper over [`IPortableDeviceValues`](https://learn.microsoft.com/en-us/windows/win32/wpd_sdk/iportabledevicevalues)
+pub struct DeviceValues(IPortableDeviceValues);
+
+impl DeviceValues {
+    pub fn new(values: IPortableDeviceValues) -> Self {
+        Self(values)
+    }
+
+    /// Retrieve a string value
+    pub fn get_string(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<U16CString> {
+        let pwstr = unsafe{ self.0.GetStringValue(key as *const _) }?;
+        let result = U16CString::from_vec_truncate(unsafe{ pwstr.as_wide() });
+        unsafe{ CoTaskMemFree(Some(pwstr.as_ptr() as *const _)) };
+        Ok(result)
+    }
+
+    /// Retrieve a uint value
+    pub fn get_u32(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<u32> {
+        unsafe{ self.0.GetUnsignedIntegerValue(key as *const _) }
+    }
+
+    /// Retrieve an int value
+    pub fn get_i32(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<i32> {
+        unsafe{ self.0.GetSignedIntegerValue(key as *const _) }
+    }
+
+    /// Retrieve a float value
+    pub fn get_f32(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<f32> {
+        unsafe{ self.0.GetFloatValue(key as *const _) }
+    }
+
+    /// Retrieve a GUID value
+    pub fn get_guid(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<GUID> {
+        unsafe{ self.0.GetGuidValue(key as *const _) }
+    }
+
+    /// Retrieve a bool value
+    pub fn get_bool(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<bool> {
+        unsafe{ self.0.GetBoolValue(key as *const _) }.map(|b| b.as_bool())
+    }
+
+    // TODO: we may add some more types here in the future
 }
