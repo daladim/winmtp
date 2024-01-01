@@ -64,15 +64,16 @@ impl Object {
         self.ty
     }
 
-    // TODO: we might want one day to wrap the returned `IPortableDeviceValues` into a Rust object with a more idiomatic API (e.g. close to the `HashMap`)
-    pub fn get_object_properties(&self, properties_to_fetch: &[crate::PROPERTYKEY]) -> crate::WindowsResult<IPortableDeviceValues> {
-        self.device_content.get_object_properties(&self.id, properties_to_fetch)
+    /// Get a list of requested metadata about an object.
+    ///
+    /// See [`crate::device::Content::properties`].
+    pub fn properties(&self, properties_to_fetch: &[crate::PROPERTYKEY]) -> crate::WindowsResult<crate::device::device_values::DeviceValues> {
+        self.device_content.properties(&self.id, properties_to_fetch)
     }
 
     pub fn parent_id(&self) -> crate::WindowsResult<U16CString> {
-        let parent_id_props = self.device_content.get_object_properties(&self.id, &[WPD_OBJECT_PARENT_ID])?;
-        let parent_id_pwstr = unsafe{ parent_id_props.GetStringValue(&WPD_OBJECT_PARENT_ID as *const _) }?;
-        Ok(U16CString::from_vec_truncate(unsafe{ parent_id_pwstr.as_wide() }))
+        let parent_id_props = self.device_content.properties(&self.id, &[WPD_OBJECT_PARENT_ID])?;
+        parent_id_props.get_string(&WPD_OBJECT_PARENT_ID)
     }
 
     /// Returns an iterator to list every children of the current object (including sub-folders)
