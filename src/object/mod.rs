@@ -211,7 +211,7 @@ impl Object {
     /// output_stream.write_all(b"hello").unwrap();
     /// output_stream.flush().unwrap();
     /// ```
-    pub fn open_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<BufWriter<WriteStream>, AddFileError> {
+    pub fn create_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<BufWriter<WriteStream>, AddFileError> {
         let (stream, optimal_transfer_size) = self.open_raw_write_stream(file_name, file_size)?;
         let write_stream = WriteStream::new(stream, optimal_transfer_size as usize);
         Ok(BufWriter::with_capacity(optimal_transfer_size as usize, write_stream))
