@@ -90,6 +90,7 @@ pub(crate) fn make_values_for_create_folder(parent_id: &U16CStr, folder_name: &O
 
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_PARENT_ID as *const _, PCWSTR::from_raw(parent_id.as_ptr())) }?;
     unsafe{ device_values.SetStringValue(&WPD_OBJECT_NAME as *const _, pcwstr_folder_name) }?;
+    unsafe{ device_values.SetStringValue(&WPD_OBJECT_ORIGINAL_FILE_NAME as *const _, pcwstr_folder_name) }?;
     unsafe{ device_values.SetGuidValue(&WPD_OBJECT_CONTENT_TYPE as *const _, &WPD_CONTENT_TYPE_FOLDER as *const _) }?;
 
     Ok(device_values)
