@@ -188,7 +188,7 @@ impl Object {
     ///
     /// Also returns the optimal transfer buffer size (in bytes) for this transfer, as stated by the Microsoft API.
     ///
-    /// See also [`Self::open_write_stream`].
+    /// See also [`Self::create_write_stream`].
     pub fn create_raw_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<(IStream, u32), AddFileError> {
         let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         make_dest_raw_stream(self.device_content.com_object(), &file_properties)
@@ -206,13 +206,13 @@ impl Object {
     /// # let app_identifiers = winmtp::make_current_app_identifiers!();
     /// # let device = basic_device.open(&app_identifiers).unwrap();
     /// let destination_folder = device.content().unwrap().root().unwrap();
-    /// let mut output_stream = destination_folder.open_write_stream("pushed-to-device.dat".as_ref(), 5).unwrap();
+    /// let mut output_stream = destination_folder.create_write_stream("pushed-to-device.dat".as_ref(), 5).unwrap();
     /// use std::io::Write;
     /// output_stream.write_all(b"hello").unwrap();
     /// output_stream.flush().unwrap();
     /// ```
     pub fn create_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<BufWriter<WriteStream>, AddFileError> {
-        let (stream, optimal_transfer_size) = self.open_raw_write_stream(file_name, file_size)?;
+        let (stream, optimal_transfer_size) = self.create_raw_write_stream(file_name, file_size)?;
         let write_stream = WriteStream::new(stream, optimal_transfer_size as usize);
         Ok(BufWriter::with_capacity(optimal_transfer_size as usize, write_stream))
     }
@@ -275,7 +275,7 @@ impl Object {
         let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?;
         let file_size = local_file.metadata()?.len();
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
-        let mut dest_writer = self.open_write_stream(file_name, file_size)?;
+        let mut dest_writer = self.create_write_stream(file_name, file_size)?;
 
         let mut source_reader = std::fs::File::open(local_file)?;
         std::io::copy(&mut source_reader, &mut dest_writer)?;
@@ -289,7 +289,7 @@ impl Object {
     pub fn push_data(&self, file_name: &OsStr, data: &[u8], allow_overwrite: bool) -> Result<(), AddFileError> {
         let file_size = data.len() as u64;
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
-        let mut dest_writer = self.open_write_stream(file_name, file_size)?;
+        let mut dest_writer = self.create_write_stream(file_name, file_size)?;
 
         let mut source_reader = std::io::BufReader::new(data);
         std::io::copy(&mut source_reader, &mut dest_writer)?;
