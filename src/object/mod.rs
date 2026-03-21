@@ -189,7 +189,7 @@ impl Object {
     /// Also returns the optimal transfer buffer size (in bytes) for this transfer, as stated by the Microsoft API.
     ///
     /// See also [`Self::open_write_stream`].
-    pub fn open_raw_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<(IStream, u32), AddFileError> {
+    pub fn create_raw_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<(IStream, u32), AddFileError> {
         let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
         make_dest_raw_stream(self.device_content.com_object(), &file_properties)
     }
