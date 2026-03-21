@@ -3,7 +3,8 @@
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::core::{PCWSTR, GUID};
 use windows::Win32::Devices::PortableDevices::{
-    IPortableDeviceContent, IPortableDeviceKeyCollection, PortableDeviceKeyCollection, WPD_OBJECT_NAME, WPD_OBJECT_CONTENT_TYPE, WPD_DEVICE_OBJECT_ID
+    IPortableDeviceContent, IPortableDeviceKeyCollection, PortableDeviceKeyCollection, WPD_OBJECT_NAME,
+    WPD_OBJECT_CONTENT_TYPE, WPD_OBJECT_ORIGINAL_FILE_NAME, WPD_DEVICE_OBJECT_ID
 };
 use widestring::{U16CString, U16CStr};
 
@@ -46,14 +47,18 @@ impl Content {
 
     /// Get an MTP object given its MTP object ID
     pub fn object_by_id(&self, object_id: U16CString) -> crate::WindowsResult<Object> {
-        // Get object name and type
-        let basic_properties = self.properties(&object_id, &[WPD_OBJECT_NAME, WPD_OBJECT_CONTENT_TYPE])?;
+        // Get the display name, type and the original filename when the device exposes it.
+        let basic_properties = self.properties(
+            &object_id,
+            &[WPD_OBJECT_NAME, WPD_OBJECT_CONTENT_TYPE, WPD_OBJECT_ORIGINAL_FILE_NAME]
+        )?;
 
         let name = basic_properties.get_string(&WPD_OBJECT_NAME)?;
+        let original_file_name = basic_properties.get_string(&WPD_OBJECT_ORIGINAL_FILE_NAME).ok();
         let ty_guid = basic_properties.get_guid(&WPD_OBJECT_CONTENT_TYPE)?;
         let object_type = ObjectType::from_guid(ty_guid);
 
-        Ok(Object::new(self.clone(), object_id, name, object_type))
+        Ok(Object::new(self.clone(), object_id, name, original_file_name, object_type))
     }
 
     /// Get a list of requested metadata about an object.

@@ -38,12 +38,20 @@ pub struct Object {
     id: U16CString,
     /// The object display name (e.g. "PIC_001.jpg")
     name: U16CString,
+    /// The original file name, as exposed by the device for file-like objects.
+    original_file_name: Option<U16CString>,
     ty: ObjectType,
 }
 
 impl Object {
-    pub fn new(device_content: Content, id: U16CString, name: U16CString, ty: ObjectType) -> Self {
-        Self { device_content, id, name, ty }
+    pub fn new(
+        device_content: Content,
+        id: U16CString,
+        name: U16CString,
+        original_file_name: Option<U16CString>,
+        ty: ObjectType
+    ) -> Self {
+        Self { device_content, id, name, original_file_name, ty }
     }
 
     pub(crate) fn device_content(&self) -> &Content {
@@ -57,6 +65,10 @@ impl Object {
     pub fn name(&self) -> &U16CStr {
         // TODO: lazy evaluation (of all properties at once to save calls to properties.GetValues) (depends on how much iterating/filtering by folder is baked-in)?
         &self.name
+    }
+
+    pub fn original_file_name(&self) -> Option<&U16CStr> {
+        self.original_file_name.as_deref()
     }
 
     pub fn object_type(&self) -> ObjectType {
@@ -109,7 +121,12 @@ impl Object {
             Some(Component::Normal(haystack)) => {
                 let candidate = self
                     .children()?
-                    .find(|obj| are_path_eq(obj.name(), haystack, self.device_content.case_sensitive_fs()))
+                    .find(|obj|
+                        are_path_eq(obj.name(), haystack, self.device_content.case_sensitive_fs())
+                        || obj.original_file_name().is_some_and(|original_file_name|
+                            are_path_eq(original_file_name, haystack, self.device_content.case_sensitive_fs())
+                        )
+                    )
                     .ok_or(ItemByPathError::NotFound)?;
 
                 object_by_components_last_stage(candidate, comps)
