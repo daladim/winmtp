@@ -1,7 +1,7 @@
 //! These test should succeed when an Android device is connected.
 
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use widestring::U16CString;
 
@@ -13,6 +13,76 @@ use winmtp::object::ObjectType;
 
 const EXAMPLE_FILE: &str = r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3";
 
+enum DeviceKind {
+    GenericAndroid,
+    Kindle
+}
+
+impl DeviceKind {
+    fn storage_root_name(&self) -> &'static str {
+        match self {
+            DeviceKind::GenericAndroid => "Internal shared storage",
+            DeviceKind::Kindle => "Internal Storage",
+        }
+    }
+
+    fn downloads_dir_name(&self) -> &'static str {
+        match self {
+            DeviceKind::GenericAndroid => "Download",
+            DeviceKind::Kindle => "downloads",
+        }
+    }
+
+    fn downloads_dir_path(&self) -> PathBuf {
+        // r"Internal shared storage\Download\"
+        PathBuf::from(format!(r"{}\{}\", self.storage_root_name(), self.downloads_dir_name()))
+    }
+    fn downloads_dir_path_with_dot_segments(&self) -> PathBuf {
+        // r"Internal shared storage\.\.\Download\.\"
+        PathBuf::from(format!(r"{}\.\.\{}\.\", self.storage_root_name(), self.downloads_dir_name()))
+    }
+    fn download_path_playlist_file(&self) -> PathBuf {
+        // r"Internal shared storage\.\.\Download\.\some_playlist.m3u"
+        PathBuf::from(format!(r"{}\.\.\{}\.\some_playlist.m3u", self.storage_root_name(), self.downloads_dir_name()))
+    }
+    fn downloads_dir_path_with_redundant_separators(&self) -> PathBuf {
+        // r"Internal shared storage\\\Download\\\"
+        PathBuf::from(format!(r"{}\\\{}\\\", self.storage_root_name(), self.downloads_dir_name()))
+    }
+    fn nonexistent_path_under_downloads(&self) -> PathBuf {
+        // r"Internal shared storage\\\Download\\\this_does_not_exist"
+        PathBuf::from(format!(r"{}\\\{}\\\this_does_not_exist", self.storage_root_name(), self.downloads_dir_name()))
+    }
+    fn downloads_dir_path_with_parent_roundtrip(&self) -> PathBuf {
+        // r"Internal shared storage\\\Download\\\..\Download"
+        PathBuf::from(format!(r"{}\\\{}\\\..\{}", self.storage_root_name(), self.downloads_dir_name(), self.downloads_dir_name()))
+    }
+    fn downloads_dir_path_with_nested_parent_segments(&self) -> PathBuf {
+        // r"Internal shared storage\\\Download\\\CYA\..\..\Download"
+        PathBuf::from(format!(r"{}\\\{}\\\CYA\..\..\{}", self.storage_root_name(), self.downloads_dir_name(), self.downloads_dir_name()))
+    }
+    fn storage_root_parent_path(&self) -> PathBuf {
+        // r"Internal shared storage\.."
+        PathBuf::from(format!(r"{}\..", self.storage_root_name()))
+    }
+    fn storage_root_parent_path_with_trailing_slash(&self) -> PathBuf {
+        // r"Internal shared storage\..\"
+        PathBuf::from(format!(r"{}\..\", self.storage_root_name()))
+    }
+    fn uploaded_mp3_path(&self) -> PathBuf {
+        // r"Internal shared storage\Download\winmtp_test\Rough Draft (open source mp3 from audiohub.com).mp3"
+        PathBuf::from(format!(r"{}\{}\winmtp_test\Rough Draft (open source mp3 from audiohub.com).mp3", self.storage_root_name(), self.downloads_dir_name()))
+    }
+}
+
+fn get_device_kind(basic_device: &BasicDevice) -> DeviceKind {
+    match basic_device.friendly_name().to_lowercase() {
+        s if s.contains("kindle") => DeviceKind::Kindle,
+        s if s.contains("android") => DeviceKind::GenericAndroid,
+        s => panic!("No testing paths for friendly name {}", s) 
+    }
+}
+
 #[test]
 fn file_access() {
     // This is a manual smoke test rather than a proper automated test, as this requires a device to be connected, with some assumptions about its content
@@ -20,15 +90,16 @@ fn file_access() {
     let provider = Provider::new().unwrap();
     let devices = provider.enumerate_devices().unwrap();
     let first_device = devices.get(0).expect("a device to be connected");
+    let device_kind = get_device_kind(first_device);
 
     println!("Testing on {}:", first_device.friendly_name());
-    access_by_path(first_device);
-    access_by_id(first_device);
-    push_content(first_device);
-    pull_content(first_device);
+    access_by_path(first_device, &device_kind);
+    access_by_id(first_device, &device_kind);
+    push_content(first_device, &device_kind);
+    pull_content(first_device, &device_kind);
 }
 
-fn access_by_path(basic_device: &BasicDevice) {
+fn access_by_path(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
     let device = basic_device.open(&app_ident, true).unwrap();
@@ -37,34 +108,38 @@ fn access_by_path(basic_device: &BasicDevice) {
     let root_obj = content.root().unwrap();
     assert_eq!(root_obj.object_type(), ObjectType::FunctionalObject);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.downloads_dir_path())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\.\.\Download\.\")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.downloads_dir_path_with_dot_segments())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\.\.\Download\.\some_playlist.m3u")).unwrap();
-    assert_eq!(object_by_path.object_type(), ObjectType::Playlist);
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.download_path_playlist_file())).unwrap();
+    match device_kind {
+        // kindles seem to report the object_type of .m3u files as unspecified
+        DeviceKind::Kindle => assert_eq!(object_by_path.object_type(), ObjectType::Unspecified),
+        _ => assert_eq!(object_by_path.object_type(), ObjectType::Playlist)
+    }   
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\\\Download\\\")).unwrap();
+    let object_by_path = root_obj.object_by_path(&device_kind.downloads_dir_path_with_redundant_separators()).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\\\Download\\\this_does_not_exist"));
+    let object_by_path = root_obj.object_by_path(&device_kind.nonexistent_path_under_downloads());
     assert!(object_by_path.is_err());
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\\\Download\\\..\Download")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.downloads_dir_path_with_parent_roundtrip())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\\\Download\\\CYA\..\..\Download")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.downloads_dir_path_with_nested_parent_segments())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
 
     let object_by_path = root_obj.object_by_path(Path::new(r".")).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::FunctionalObject);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\..")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.storage_root_parent_path())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::FunctionalObject);
 
-    let object_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\..\")).unwrap();
+    let object_by_path = root_obj.object_by_path(Path::new(&device_kind.storage_root_parent_path_with_trailing_slash())).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::FunctionalObject);
 
     let object_by_path = root_obj.object_by_path(Path::new(r".."));
@@ -72,23 +147,23 @@ fn access_by_path(basic_device: &BasicDevice) {
 }
 
 
-fn access_by_id(basic_device: &BasicDevice) {
+fn access_by_id(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
     let device = basic_device.open(&app_ident, true).unwrap();
     let content = device.content().unwrap();
 
     let root_obj = content.root().unwrap();
-    let download_folder_by_path = root_obj.object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
+    let download_folder_by_path = root_obj.object_by_path(&device_kind.downloads_dir_path()).unwrap();
     let download_folder_by_id = content.object_by_id(download_folder_by_path.id().to_ucstring()).unwrap();
-    assert_eq!(download_folder_by_id.name(), &U16CString::from_str_truncate("Download"));
+    assert_eq!(download_folder_by_id.name(), &U16CString::from_str_truncate(device_kind.downloads_dir_name()));
 }
 
-fn push_content(basic_device: &BasicDevice) {
+fn push_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
     let content = device.content().unwrap();
-    let download_folder = content.root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\")).unwrap();
+    let download_folder = content.root().unwrap().object_by_path(&device_kind.downloads_dir_path()).unwrap();
     let test_folder_id = match download_folder.create_subfolder(OsStr::new("winmtp_test")) {
         Ok(id) => id,
         Err(winmtp::error::CreateFolderError::AlreadyExists) => {
@@ -104,10 +179,10 @@ fn push_content(basic_device: &BasicDevice) {
     test_folder.push_file(Path::new(EXAMPLE_FILE), true).unwrap();
 }
 
-fn pull_content(basic_device: &BasicDevice) {
+fn pull_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
-    let object = device.content().unwrap().root().unwrap().object_by_path(Path::new(r"Internal shared storage\Download\winmtp_test\Rough Draft (open source mp3 from audiohub.com).mp3")).unwrap();
+    let object = device.content().unwrap().root().unwrap().object_by_path(&device_kind.uploaded_mp3_path()).unwrap();
 
     // Check the file size
     let metadata = object.properties(&[WPD_OBJECT_SIZE]).unwrap();
