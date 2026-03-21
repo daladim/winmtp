@@ -1,4 +1,4 @@
 /target
 
 tests/assets/pulled-from-device.dat
-test/assets/created-via-write-stream.dat
+tests/assets/created-via-write-stream.dat
