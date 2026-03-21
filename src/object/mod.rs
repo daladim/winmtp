@@ -135,7 +135,7 @@ impl Object {
         }
     }
 
-    /// Opens a COM [`IStream`](windows::Win32::System::Com::IStream) to this object.
+    /// Opens a COM [`IStream`](windows::Win32::System::Com::IStream) to this object, suitable for reading.
     ///
     /// An error will be returned if the required operation does not make sense (e.g. get a stream to a folder).
     ///
