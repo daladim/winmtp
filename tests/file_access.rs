@@ -16,6 +16,7 @@ use winmtp::object::Object;
 const EXAMPLE_SONG: &str = r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3";
 const PLAYLIST_CONTENT: &str = "This is not a valid M3U file, but ideally it should";
 
+#[derive(Debug, Clone, Copy)]
 enum DeviceKind {
     GenericAndroid,
     Kindle
@@ -99,15 +100,15 @@ fn file_access() {
     let device_kind = get_device_kind(first_device);
 
     println!("Testing on {}:", first_device.friendly_name());
-    push_content(first_device, &device_kind);
-    access_by_path(first_device, &device_kind);
-    access_by_id(first_device, &device_kind);
-    pull_content(first_device, &device_kind);
-    write_file_via_create_write_stream(first_device, &device_kind);
-    verify_file_written_via_create_write_stream(first_device, &device_kind);
+    push_content(first_device, device_kind);
+    access_by_path(first_device, device_kind);
+    access_by_id(first_device, device_kind);
+    pull_content(first_device, device_kind);
+    write_file_via_create_write_stream(first_device, device_kind);
+    verify_file_written_via_create_write_stream(first_device, device_kind);
 }
 
-fn access_by_path(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn access_by_path(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
     let device = basic_device.open(&app_ident, true).unwrap();
@@ -155,7 +156,7 @@ fn access_by_path(basic_device: &BasicDevice, device_kind: &DeviceKind) {
 }
 
 
-fn access_by_id(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn access_by_id(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let app_ident = winmtp::make_current_app_identifiers!();
 
     let device = basic_device.open(&app_ident, true).unwrap();
@@ -167,7 +168,7 @@ fn access_by_id(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     assert_eq!(download_folder_by_id.name(), &U16CString::from_str_truncate(device_kind.downloads_dir_name()));
 }
 
-fn prepare_upload_folder(basic_device: &BasicDevice, device_kind: &DeviceKind) -> Object {
+fn prepare_upload_folder(basic_device: &BasicDevice, device_kind: DeviceKind) -> Object {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
     let content = device.content().unwrap();
@@ -188,14 +189,14 @@ fn prepare_upload_folder(basic_device: &BasicDevice, device_kind: &DeviceKind) -
 }
 
 /// Write some files, that will also be used for reading tests
-fn push_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn push_content(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let test_folder = prepare_upload_folder(basic_device, device_kind);
     test_folder.push_file(Path::new(EXAMPLE_SONG), true).unwrap();
     
     test_folder.push_data(OsStr::new("some_playlist.m3u"), PLAYLIST_CONTENT.as_bytes(), true).unwrap();
 }
 
-fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let test_folder = prepare_upload_folder(basic_device, device_kind);
 
     let file_size = std::fs::metadata(Path::new(EXAMPLE_SONG)).unwrap().len();
@@ -217,7 +218,7 @@ fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: &
     assert!(overwriting_output_stream.is_err());
 }
 
-fn pull_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn pull_content(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
     let object = device.content().unwrap().root().unwrap().object_by_path(&device_kind.uploaded_mp3_path()).unwrap();
@@ -234,7 +235,7 @@ fn pull_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     std::io::copy(&mut input_stream, &mut output_file).unwrap();
 }
 
-fn verify_file_written_via_create_write_stream(basic_device: &BasicDevice, device_kind: &DeviceKind) {
+fn verify_file_written_via_create_write_stream(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
     let object = device.content().unwrap().root().unwrap().object_by_path(&device_kind.write_stream_file_path()).unwrap();
