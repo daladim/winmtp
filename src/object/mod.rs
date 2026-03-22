@@ -182,10 +182,12 @@ impl Object {
     ///
     /// # Example
     /// ```
+    /// # use widestring::{u16cstr, U16CString};
     /// # let provider = winmtp::Provider::new().unwrap();
-    /// # let basic_device = provider.enumerate_devices().unwrap()[0];
+    /// # let basic_device = &provider.enumerate_devices().unwrap()[0];
     /// # let app_identifiers = winmtp::make_current_app_identifiers!();
-    /// # let device = basic_device.open(&app_identifiers).unwrap();
+    /// # let device = basic_device.open(&app_identifiers, false).unwrap();
+    /// # let some_id = U16CString::from(u16cstr!("some_id"));
     /// let object = device.content().unwrap().object_by_id(some_id).unwrap();
     /// let mut input_stream = object.open_read_stream().unwrap();
     /// let mut output_file = std::fs::File::create("pulled-from-device.dat").unwrap();
@@ -222,9 +224,9 @@ impl Object {
     /// # Example
     /// ```
     /// # let provider = winmtp::Provider::new().unwrap();
-    /// # let basic_device = provider.enumerate_devices().unwrap()[0];
+    /// # let basic_device = &provider.enumerate_devices().unwrap()[0];
     /// # let app_identifiers = winmtp::make_current_app_identifiers!();
-    /// # let device = basic_device.open(&app_identifiers).unwrap();
+    /// # let device = basic_device.open(&app_identifiers, false).unwrap();
     /// let destination_folder = device.content().unwrap().root().unwrap();
     /// let mut output_stream = destination_folder.create_write_stream("pushed-to-device.dat".as_ref(), 5, true).unwrap();
     /// use std::io::Write;
