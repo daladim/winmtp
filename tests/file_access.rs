@@ -12,7 +12,8 @@ use winmtp::device::BasicDevice;
 use winmtp::device::device_values::AppIdentifiers;
 use winmtp::object::ObjectType;
 
-const EXAMPLE_FILE: &str = r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3";
+const EXAMPLE_SONG: &str = r"tests\assets\Rough Draft (open source mp3 from audiohub.com).mp3";
+const PLAYLIST_CONTENT: &str = "This is not a valid M3U file, but ideally it should";
 
 enum DeviceKind {
     GenericAndroid,
@@ -43,8 +44,8 @@ impl DeviceKind {
         PathBuf::from(format!(r"{}\.\.\{}\.\", self.storage_root_name(), self.downloads_dir_name()))
     }
     fn download_path_playlist_file(&self) -> PathBuf {
-        // r"Internal shared storage\.\.\Download\.\some_playlist.m3u"
-        PathBuf::from(format!(r"{}\.\.\{}\.\some_playlist.m3u", self.storage_root_name(), self.downloads_dir_name()))
+        // r"Internal shared storage\.\.\Download\winmtp_test\.\some_playlist.m3u"
+        PathBuf::from(format!(r"{}\.\.\{}\winmtp_test\.\some_playlist.m3u", self.storage_root_name(), self.downloads_dir_name()))
     }
     fn downloads_dir_path_with_redundant_separators(&self) -> PathBuf {
         // r"Internal shared storage\\\Download\\\"
@@ -59,8 +60,8 @@ impl DeviceKind {
         PathBuf::from(format!(r"{}\\\{}\\\..\{}", self.storage_root_name(), self.downloads_dir_name(), self.downloads_dir_name()))
     }
     fn downloads_dir_path_with_nested_parent_segments(&self) -> PathBuf {
-        // r"Internal shared storage\\\Download\\\CYA\..\..\Download"
-        PathBuf::from(format!(r"{}\\\{}\\\CYA\..\..\{}", self.storage_root_name(), self.downloads_dir_name(), self.downloads_dir_name()))
+        // r"Internal shared storage\\\Download\\\winmtp_test\..\..\Download"
+        PathBuf::from(format!(r"{}\\\{}\\\winmtp_test\..\..\{}", self.storage_root_name(), self.downloads_dir_name(), self.downloads_dir_name()))
     }
     fn storage_root_parent_path(&self) -> PathBuf {
         // r"Internal shared storage\.."
@@ -97,9 +98,9 @@ fn file_access() {
     let device_kind = get_device_kind(first_device);
 
     println!("Testing on {}:", first_device.friendly_name());
+    push_content(first_device, &device_kind);
     access_by_path(first_device, &device_kind);
     access_by_id(first_device, &device_kind);
-    push_content(first_device, &device_kind);
     pull_content(first_device, &device_kind);
     writes_file_via_create_write_stream(first_device, &device_kind);
     verifies_file_written_via_create_write_stream(first_device, &device_kind);
@@ -165,6 +166,7 @@ fn access_by_id(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     assert_eq!(download_folder_by_id.name(), &U16CString::from_str_truncate(device_kind.downloads_dir_name()));
 }
 
+/// Write some files, that will also be used for reading tests
 fn push_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
@@ -182,7 +184,9 @@ fn push_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     };
 
     let test_folder = content.object_by_id(test_folder_id).unwrap();
-    test_folder.push_file(Path::new(EXAMPLE_FILE), true).unwrap();
+    test_folder.push_file(Path::new(EXAMPLE_SONG), true).unwrap();
+    
+    test_folder.push_data(OsStr::new("some_playlist.m3u"), PLAYLIST_CONTENT.as_bytes(), true).unwrap();
 }
 
 fn writes_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: &DeviceKind) {
@@ -202,9 +206,9 @@ fn writes_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: 
     };
 
     let test_folder = content.object_by_id(test_folder_id).unwrap();
-    let file_size = std::fs::metadata(Path::new(EXAMPLE_FILE)).unwrap().len();
-    let file_name = Path::new(EXAMPLE_FILE).file_name().unwrap();
-    let mut source_file = std::fs::File::open(Path::new(EXAMPLE_FILE)).unwrap();
+    let file_size = std::fs::metadata(Path::new(EXAMPLE_SONG)).unwrap().len();
+    let file_name = Path::new(EXAMPLE_SONG).file_name().unwrap();
+    let mut source_file = std::fs::File::open(Path::new(EXAMPLE_SONG)).unwrap();
     
     let mut output_stream = test_folder
         .create_write_stream(file_name, file_size)
@@ -221,7 +225,7 @@ fn pull_content(basic_device: &BasicDevice, device_kind: &DeviceKind) {
     // Check the file size
     let metadata = object.properties(&[WPD_OBJECT_SIZE]).unwrap();
     let retrieved_size = metadata.get_u32(&WPD_OBJECT_SIZE).unwrap();
-    let original_size = std::fs::metadata(Path::new(EXAMPLE_FILE)).unwrap().len();
+    let original_size = std::fs::metadata(Path::new(EXAMPLE_SONG)).unwrap().len();
     assert_eq!(retrieved_size as u64, original_size);
 
     // Download the file
@@ -238,7 +242,7 @@ fn verifies_file_written_via_create_write_stream(basic_device: &BasicDevice, dev
     // Check the file size
     let metadata = object.properties(&[WPD_OBJECT_SIZE]).unwrap();
     let retrieved_size = metadata.get_u32(&WPD_OBJECT_SIZE).unwrap();
-    let original_size = std::fs::metadata(Path::new(EXAMPLE_FILE)).unwrap().len();
+    let original_size = std::fs::metadata(Path::new(EXAMPLE_SONG)).unwrap().len();
     assert_eq!(retrieved_size as u64, original_size);
 
     // Download the file
