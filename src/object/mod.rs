@@ -1,6 +1,6 @@
 //! MTP object (can be a folder, a file, etc.)
 
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, Components, Component};
 use std::iter::Peekable;
 use std::ffi::OsStr;
@@ -38,12 +38,20 @@ pub struct Object {
     id: U16CString,
     /// The object display name (e.g. "PIC_001.jpg")
     name: U16CString,
+    /// The original file name, as exposed by the device for file-like objects.
+    original_file_name: Option<U16CString>,
     ty: ObjectType,
 }
 
 impl Object {
-    pub fn new(device_content: Content, id: U16CString, name: U16CString, ty: ObjectType) -> Self {
-        Self { device_content, id, name, ty }
+    pub fn new(
+        device_content: Content,
+        id: U16CString,
+        name: U16CString,
+        original_file_name: Option<U16CString>,
+        ty: ObjectType
+    ) -> Self {
+        Self { device_content, id, name, original_file_name, ty }
     }
 
     pub(crate) fn device_content(&self) -> &Content {
@@ -57,6 +65,10 @@ impl Object {
     pub fn name(&self) -> &U16CStr {
         // TODO: lazy evaluation (of all properties at once to save calls to properties.GetValues) (depends on how much iterating/filtering by folder is baked-in)?
         &self.name
+    }
+
+    pub fn original_file_name(&self) -> Option<&U16CStr> {
+        self.original_file_name.as_deref()
     }
 
     pub fn object_type(&self) -> ObjectType {
@@ -109,7 +121,12 @@ impl Object {
             Some(Component::Normal(haystack)) => {
                 let candidate = self
                     .children()?
-                    .find(|obj| are_path_eq(obj.name(), haystack, self.device_content.case_sensitive_fs()))
+                    .find(|obj|
+                        are_path_eq(obj.name(), haystack, self.device_content.case_sensitive_fs())
+                        || obj.original_file_name().is_some_and(|original_file_name|
+                            are_path_eq(original_file_name, haystack, self.device_content.case_sensitive_fs())
+                        )
+                    )
                     .ok_or(ItemByPathError::NotFound)?;
 
                 object_by_components_last_stage(candidate, comps)
@@ -135,7 +152,7 @@ impl Object {
         }
     }
 
-    /// Opens a COM [`IStream`](windows::Win32::System::Com::IStream) to this object.
+    /// Opens a COM [`IStream`](windows::Win32::System::Com::IStream) to this object, suitable for reading.
     ///
     /// An error will be returned if the required operation does not make sense (e.g. get a stream to a folder).
     ///
@@ -180,6 +197,41 @@ impl Object {
         // Reader this reader is a slow process. Let's wrap it in a buffered reader for optimal perfs.
         // (There is no obvious reason for the capacity to be the same as the transfer size, but let's use it anyway)
         Ok(BufReader::with_capacity(optimal_transfer_size as usize, read_stream))
+    }
+
+    /// Open a COM [`IStream`](windows::Win32::System::Com::IStream) to create a file in the current object.
+    ///
+    /// The current object is expected to be a folder-like object. The file does not exist until the stream is committed.
+    ///
+    /// Also returns the optimal transfer buffer size (in bytes) for this transfer, as stated by the Microsoft API.
+    ///
+    /// See also [`Self::create_write_stream`].
+    pub fn create_raw_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<(IStream, u32), AddFileError> {
+        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
+        make_dest_raw_stream(self.device_content.com_object(), &file_properties)
+    }
+
+    /// The same as [`Self::open_raw_write_stream`], but wrapped into a [`crate::io::WriteStream`] for more added Rust magic.
+    ///
+    /// The returned stream must be committed, either by calling `flush()` (which calls COM `Commit`) or `commit()`
+    /// on the inner stream.
+    ///
+    /// # Example
+    /// ```
+    /// # let provider = winmtp::Provider::new().unwrap();
+    /// # let basic_device = provider.enumerate_devices().unwrap()[0];
+    /// # let app_identifiers = winmtp::make_current_app_identifiers!();
+    /// # let device = basic_device.open(&app_identifiers).unwrap();
+    /// let destination_folder = device.content().unwrap().root().unwrap();
+    /// let mut output_stream = destination_folder.create_write_stream("pushed-to-device.dat".as_ref(), 5).unwrap();
+    /// use std::io::Write;
+    /// output_stream.write_all(b"hello").unwrap();
+    /// output_stream.flush().unwrap();
+    /// ```
+    pub fn create_write_stream(&self, file_name: &OsStr, file_size: u64) -> Result<BufWriter<WriteStream>, AddFileError> {
+        let (stream, optimal_transfer_size) = self.create_raw_write_stream(file_name, file_size)?;
+        let write_stream = WriteStream::new(stream, optimal_transfer_size as usize);
+        Ok(BufWriter::with_capacity(optimal_transfer_size as usize, write_stream))
     }
 
     /// Create a subfolder, and return its object ID
@@ -240,14 +292,12 @@ impl Object {
         let file_name = local_file.file_name().ok_or(AddFileError::InvalidLocalFile)?;
         let file_size = local_file.metadata()?.len();
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
-
-        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
-        let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
+        let mut dest_writer = self.create_write_stream(file_name, file_size)?;
 
         let mut source_reader = std::fs::File::open(local_file)?;
         std::io::copy(&mut source_reader, &mut dest_writer)?;
 
-        dest_writer.commit()?;
+        dest_writer.flush()?;
 
         Ok(())
     }
@@ -256,14 +306,12 @@ impl Object {
     pub fn push_data(&self, file_name: &OsStr, data: &[u8], allow_overwrite: bool) -> Result<(), AddFileError> {
         let file_size = data.len() as u64;
         self.remove_existing_file_if_needed(file_name, allow_overwrite)?;
-
-        let file_properties = make_values_for_create_file(&self.id, file_name, file_size)?;
-        let mut dest_writer = make_dest_writer(self.device_content.com_object(), &file_properties)?;
+        let mut dest_writer = self.create_write_stream(file_name, file_size)?;
 
         let mut source_reader = std::io::BufReader::new(data);
         std::io::copy(&mut source_reader, &mut dest_writer)?;
 
-        dest_writer.commit()?;
+        dest_writer.flush()?;
 
         Ok(())
     }
@@ -368,7 +416,7 @@ fn object_by_components_last_stage(candidate: Object, next_components: &mut Peek
     }
 }
 
-fn make_dest_writer(com_object: &IPortableDeviceContent, file_properties: &IPortableDeviceValues) -> Result<WriteStream, AddFileError> {
+fn make_dest_raw_stream(com_object: &IPortableDeviceContent, file_properties: &IPortableDeviceValues) -> Result<(IStream, u32), AddFileError> {
     let mut write_stream = None;
     let mut optimal_write_buffer_size = 0;
     unsafe{ com_object.CreateObjectWithPropertiesAndData(
@@ -379,5 +427,5 @@ fn make_dest_writer(com_object: &IPortableDeviceContent, file_properties: &IPort
     )}?;
 
     let write_stream = write_stream.ok_or(AddFileError::UnableToCreate)?;
-    Ok(WriteStream::new(write_stream, optimal_write_buffer_size as usize))
+    Ok((write_stream, optimal_write_buffer_size))
 }
