@@ -9,7 +9,6 @@ use widestring::U16CString;
 use winmtp::PortableDevices::WPD_OBJECT_SIZE;
 use winmtp::Provider;
 use winmtp::device::BasicDevice;
-use winmtp::device::device_values::AppIdentifiers;
 use winmtp::object::ObjectType;
 use winmtp::object::Object;
 
