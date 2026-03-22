@@ -82,8 +82,8 @@ impl DeviceKind {
 fn get_device_kind(basic_device: &BasicDevice) -> DeviceKind {
     match basic_device.friendly_name().to_lowercase() {
         s if s.contains("kindle") => DeviceKind::Kindle,
-        s if s.contains("android") => DeviceKind::GenericAndroid,
-        s => panic!("No testing paths for friendly name {}", s) 
+        s if s.contains("android") || s.contains("moto") => DeviceKind::GenericAndroid,
+        s => panic!("No testing paths for friendly name {}", s)
     }
 }
 
