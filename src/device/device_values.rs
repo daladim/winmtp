@@ -1,7 +1,10 @@
 use std::ffi::OsStr;
+use std::time::SystemTime;
 
 use windows::core::{GUID, PCWSTR};
+use windows::Win32::Foundation::E_FAIL;
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL, CoTaskMemFree};
+use windows::Win32::System::Variant::VT_DATE;
 use windows::Win32::Storage::FileSystem::SECURITY_IMPERSONATION;
 use windows::Win32::Devices::PortableDevices::{
     PortableDeviceValues, IPortableDeviceValues,
@@ -147,6 +150,11 @@ impl DeviceValues {
         unsafe{ self.0.GetSignedIntegerValue(key as *const _) }
     }
 
+    /// Retrieve a u64 value
+    pub fn get_u64(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<u64> {
+        unsafe{ self.0.GetUnsignedLargeIntegerValue(key as *const _) }
+    }
+
     /// Retrieve a float value
     pub fn get_f32(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<f32> {
         unsafe{ self.0.GetFloatValue(key as *const _) }
@@ -160,6 +168,26 @@ impl DeviceValues {
     /// Retrieve a bool value
     pub fn get_bool(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<bool> {
         unsafe{ self.0.GetBoolValue(key as *const _) }.map(|b| b.as_bool())
+    }
+
+    /// Retrieve a DATE value
+    pub fn get_date(&self, key: &crate::PROPERTYKEY) -> crate::WindowsResult<SystemTime> {
+        const SECONDS_PER_DAY: f64 = 86_400.0;
+        const DAYS_BETWEEN_1899_AND_1970: f64 = 25_569.0;
+
+        let prop_variant =  unsafe{ self.0.GetValue(key as *const _) }?;
+
+        let inner = &unsafe { prop_variant.Anonymous.Anonymous };
+        if inner.vt != VT_DATE {
+            return Err(crate::WindowsError::from(E_FAIL));
+        }
+
+        let vt_date = unsafe { inner.Anonymous.date };
+
+        let days_since_unix_epoch = vt_date - DAYS_BETWEEN_1899_AND_1970;
+        let seconds_since_unix_epoch = days_since_unix_epoch * SECONDS_PER_DAY;
+
+        Ok(std::time::UNIX_EPOCH + std::time::Duration::from_secs_f64(seconds_since_unix_epoch))
     }
 
     // TODO: we may add some more types here in the future
