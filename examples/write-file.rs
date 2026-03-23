@@ -19,7 +19,7 @@ fn main() {
     }
 }
 
-// use this if you want a progress bar while sending the file
+// use this if you want to write a file to the device
 fn send_file_to_device(basic_device: &BasicDevice) -> Result<(), Box<dyn Error>> {
   let app_ident = winmtp::make_current_app_identifiers!();
 
