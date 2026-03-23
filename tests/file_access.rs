@@ -3,10 +3,11 @@
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use widestring::U16CString;
 
-use winmtp::PortableDevices::WPD_OBJECT_SIZE;
+use winmtp::PortableDevices::{WPD_OBJECT_SIZE, WPD_OBJECT_DATE_MODIFIED};
 use winmtp::Provider;
 use winmtp::device::BasicDevice;
 use winmtp::object::ObjectType;
@@ -99,10 +100,10 @@ fn file_access() {
     let device_kind = get_device_kind(first_device);
 
     println!("Testing on {}:", first_device.friendly_name());
-    push_content(first_device, device_kind);
+    let (min_date, max_date) = push_content(first_device, device_kind);
     access_by_path(first_device, device_kind);
     access_by_id(first_device, device_kind);
-    pull_content(first_device, device_kind);
+    pull_content(first_device, device_kind, min_date, max_date);
     write_file_via_create_write_stream(first_device, device_kind);
     verify_file_written_via_create_write_stream(first_device, device_kind);
 }
@@ -188,11 +189,16 @@ fn prepare_upload_folder(basic_device: &BasicDevice, device_kind: DeviceKind) ->
 }
 
 /// Write some files, that will also be used for reading tests
-fn push_content(basic_device: &BasicDevice, device_kind: DeviceKind) {
+fn push_content(basic_device: &BasicDevice, device_kind: DeviceKind) -> (SystemTime, SystemTime) {
     let test_folder = prepare_upload_folder(basic_device, device_kind);
+
+    let min_date = SystemTime::now();
     test_folder.push_file(Path::new(EXAMPLE_SONG), true).unwrap();
 
     test_folder.push_data(OsStr::new("some_playlist.m3u"), PLAYLIST_CONTENT.as_bytes(), true).unwrap();
+    let max_date = SystemTime::now();
+
+    (min_date, max_date)
 }
 
 fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: DeviceKind) {
@@ -217,16 +223,24 @@ fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: D
     assert!(overwriting_output_stream.is_err());
 }
 
-fn pull_content(basic_device: &BasicDevice, device_kind: DeviceKind) {
+fn pull_content(basic_device: &BasicDevice, device_kind: DeviceKind, min_expected_date: SystemTime, max_expected_date: SystemTime) {
     let app_identifiers = winmtp::make_current_app_identifiers!();
     let device = basic_device.open(&app_identifiers, true).unwrap();
     let object = device.content().unwrap().root().unwrap().object_by_path(&device_kind.uploaded_mp3_path()).unwrap();
 
     // Check the file size
-    let metadata = object.properties(&[WPD_OBJECT_SIZE]).unwrap();
+    let metadata = object.properties(&[WPD_OBJECT_SIZE, WPD_OBJECT_DATE_MODIFIED]).unwrap();
     let retrieved_size = metadata.get_u32(&WPD_OBJECT_SIZE).unwrap();
     let original_size = std::fs::metadata(Path::new(EXAMPLE_SONG)).unwrap().len();
     assert_eq!(retrieved_size as u64, original_size);
+
+    // Check we can access the file creation date
+    let creation_date = metadata.get_date(&WPD_OBJECT_DATE_MODIFIED).unwrap();
+    // It looks like the returned date is in UTC (unlike SystemTime::now()), which makes it painful to compare with min_expected_date and max_expected_date (given that SystemTime have no APIs to convert between timezones)
+    // let delta_min = creation_date.duration_since(min_expected_date);
+    // let delta_max = max_expected_date.duration_since(creation_date);
+    // assert!(creation_date > min_expected_date, "Min creation date mismatch ({creation_date:?} vs. {min_expected_date:?} = {delta_min:?}). Are the clock of the device and its time zone correctly set?");
+    // assert!(creation_date < max_expected_date, "Max creation date mismatch ({creation_date:?} vs. {max_expected_date:?} = {delta_max:?}). Are the clock of the device and its time zone correctly set?");
 
     // Download the file
     let mut input_stream = object.open_read_stream().unwrap();
