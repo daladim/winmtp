@@ -16,7 +16,7 @@ fn main() {
     }
 
     if let Some(first_device) = devices.get(0) {
-        println!("Content of {}:", first_device.friendly_name());
+        println!("Writing a file to {}...", first_device.friendly_name());
         send_file_to_device(first_device).unwrap();
     }
 }
