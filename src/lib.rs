@@ -21,6 +21,8 @@
 //! # Usage
 //!
 //! The entry point of this library is to create a `Provider`, e.g. by [`Provider::new`]. Other structs can be created from its various methods.
+//!
+//! Some examples are provided in the `examples/` folder. The `tests/` folder also contains examples on how to use this library.
 
 pub mod io;
 
