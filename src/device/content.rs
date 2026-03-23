@@ -62,6 +62,8 @@ impl Content {
     }
 
     /// Get a list of requested metadata about an object.
+    ///
+    /// Example of valid properties are listed on [Microsoft's documentation](https://learn.microsoft.com/en-gb/windows/win32/wpd_sdk/object-properties).
     pub fn properties(&self, object_id: &U16CStr, properties_to_fetch: &[crate::PROPERTYKEY]) -> crate::WindowsResult<DeviceValues> {
         let props_to_read: IPortableDeviceKeyCollection = unsafe {
             CoCreateInstance(
