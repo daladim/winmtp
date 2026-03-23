@@ -89,7 +89,7 @@ impl Object {
     }
 
     /// Returns an iterator to list every children of the current object (including sub-folders)
-    pub fn children(&self) -> crate::WindowsResult<ObjectIterator> {
+    pub fn children(&self) -> crate::WindowsResult<ObjectIterator<'_>> {
         let com_iter = unsafe{
             self.device_content.com_object().EnumObjects(
                 0,
