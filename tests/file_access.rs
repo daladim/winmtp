@@ -127,7 +127,7 @@ fn access_by_path(basic_device: &BasicDevice, device_kind: DeviceKind) {
         // kindles seem to report the object_type of .m3u files as unspecified
         DeviceKind::Kindle => assert_eq!(object_by_path.object_type(), ObjectType::Unspecified),
         _ => assert_eq!(object_by_path.object_type(), ObjectType::Playlist)
-    }   
+    }
 
     let object_by_path = root_obj.object_by_path(&device_kind.downloads_dir_path_with_redundant_separators()).unwrap();
     assert_eq!(object_by_path.object_type(), ObjectType::Folder);
@@ -191,7 +191,7 @@ fn prepare_upload_folder(basic_device: &BasicDevice, device_kind: DeviceKind) ->
 fn push_content(basic_device: &BasicDevice, device_kind: DeviceKind) {
     let test_folder = prepare_upload_folder(basic_device, device_kind);
     test_folder.push_file(Path::new(EXAMPLE_SONG), true).unwrap();
-    
+
     test_folder.push_data(OsStr::new("some_playlist.m3u"), PLAYLIST_CONTENT.as_bytes(), true).unwrap();
 }
 
@@ -202,7 +202,7 @@ fn write_file_via_create_write_stream(basic_device: &BasicDevice, device_kind: D
     let file_path = device_kind.write_stream_file_path();
     let file_name = file_path.file_name().unwrap();
     let mut source_file = std::fs::File::open(Path::new(EXAMPLE_SONG)).unwrap();
-    
+
     // Write the file
     let mut output_stream = test_folder
         .create_write_stream(file_name, file_size, true)
