@@ -8,7 +8,7 @@
 //! # What is MTP
 //!
 //! MTP stands for "Media Transfer Protocol". This is how many devices expose themselves when plugged by USB.<br/>
-//! Most (every?) Android device supports it.
+//! Most (every?) Android device, as well as Kindle e-readers, support it.
 //!
 //! # Important note
 //!
